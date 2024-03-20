@@ -2453,12 +2453,12 @@ static void __exit bes2600_sdio_exit(void)
 	struct sbus_priv *priv =  bes2600_chrdev_get_sbus_priv_data();
 	bes2600_info(BES2600_DBG_SDIO, "%s called\n", __func__);
 
-	bes2600_unregister_net_dev(priv);
+	if (priv)
+		bes2600_unregister_net_dev(priv);
 	sdio_unregister_driver(&sdio_driver);
 	bes2600_chrdev_free();
-	if(!priv) {
+	if (!priv)
 		bes2600_sdio_off(pdata);
-	}
 	bes2600_platform_data_deinit();
 }
 
