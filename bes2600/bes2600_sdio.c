@@ -594,11 +594,6 @@ static int bes2600_sdio_off(const struct bes2600_platform_data_sdio *pdata)
 	sunxi_wlan_set_power(false);
 #endif
 
-#if defined(PLAT_ROCKCHIP)
-	rockchip_wifi_set_carddetect(0);
-	rockchip_wifi_power(0);
-#endif
-
 	gpiod_direction_output(pdata->powerup, GPIOD_OUT_LOW);
 	gpiod_direction_output(pdata->reset, GPIOD_OUT_LOW);
 
@@ -614,10 +609,7 @@ static int bes2600_sdio_on(const struct bes2600_platform_data_sdio *pdata)
 #endif
 
 #ifdef PLAT_ROCKCHIP
-	rockchip_wifi_power(0);
-	rockchip_wifi_power(1);
 	bes2600_chrdev_start_bus_probe();
-	rockchip_wifi_set_carddetect(1);
 #endif
 
 	gpiod_direction_output(pdata->powerup, GPIOD_OUT_HIGH);
@@ -2457,8 +2449,7 @@ static void __exit bes2600_sdio_exit(void)
 		bes2600_unregister_net_dev(priv);
 	sdio_unregister_driver(&sdio_driver);
 	bes2600_chrdev_free();
-	if (!priv)
-		bes2600_sdio_off(pdata);
+	bes2600_sdio_off(pdata);
 	bes2600_platform_data_deinit();
 }
 
