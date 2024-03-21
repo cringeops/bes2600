@@ -586,20 +586,6 @@ static int bes2600_sdio_irq_unsubscribe(struct sbus_priv *self)
 	return ret;
 }
 
-static int bes2600_sdio_off(const struct bes2600_platform_data_sdio *pdata)
-{
-	bes2600_info(BES2600_DBG_SDIO, "%s enter\n", __func__);
-
-#if defined(PLAT_ALLWINNER)
-	sunxi_wlan_set_power(false);
-#endif
-
-	gpiod_direction_output(pdata->powerup, GPIOD_OUT_LOW);
-	gpiod_direction_output(pdata->reset, GPIOD_OUT_LOW);
-
-	return 0;
-}
-
 static int bes2600_sdio_on(const struct bes2600_platform_data_sdio *pdata)
 {
 	bes2600_info(BES2600_DBG_SDIO, "%s enter\n", __func__);
@@ -996,10 +982,6 @@ static void sdio_scan_work(struct work_struct *work)
 	sunxi_mmc_rescan_card(sunxi_wlan_get_bus_index());
 #endif
 
-#ifdef PLAT_ROCKCHIP
-	rockchip_wifi_set_carddetect(1);
-#endif
-
 #ifdef PLAT_CVITEK_182X
 	cvi_sdio_rescan();
 #endif
@@ -1346,75 +1328,66 @@ err2:
 	return 0;
 }
 
-static struct bes2600_platform_data_sdio bes_sdio_plat_data;
+static struct bes2600_platform_data_sdio bes_sdio_plat_data = {
+	.inited = false,
+};
 
 struct bes2600_platform_data_sdio *bes2600_get_platform_data(void)
 {
 	return &bes_sdio_plat_data;
 }
 
-static int bes2600_platform_data_init(void)
+static int bes2600_platform_data_init(struct device *dev)
 {
-	int ret = 0;
 	struct bes2600_platform_data_sdio *pdata = bes2600_get_platform_data();
 	struct device_node *np;
+
+	if (pdata->inited)
+		return 0;
 
 	np = of_find_compatible_node(NULL, NULL, "bestechnic,bes2600-sdio");
 	if (!np) {
 		bes2600_err(BES2600_DBG_SDIO, "bes2600-sdio device node not found!\n");
-		goto exit;
+		return -EINVAL;
 	}
 
 	/* Ensure I/Os are pulled low */
-	pdata->reset = fwnode_gpiod_get_index(&np->fwnode, "reset", 0, GPIOD_OUT_LOW, "bes2600_wlan_reset");
+	pdata->reset = devm_fwnode_gpiod_get_index(dev, &np->fwnode, "reset", 0, GPIOD_OUT_LOW, "bes2600_wlan_reset");
 	if (IS_ERR(pdata->reset)) {
 		bes2600_err(BES2600_DBG_SDIO, "can't request reset_gpio (%ld)\n", PTR_ERR(pdata->reset));
 		pdata->reset = NULL;
  	}
 
-	pdata->powerup = fwnode_gpiod_get_index(&np->fwnode, "powerup", 0, GPIOD_OUT_LOW, "bes2600_wlan_powerup");
+	pdata->powerup = devm_fwnode_gpiod_get_index(dev ,&np->fwnode, "powerup", 0, GPIOD_OUT_LOW, "bes2600_wlan_powerup");
 	if (IS_ERR(pdata->powerup)) {
 		bes2600_err(BES2600_DBG_SDIO, "can't request powerup_gpio (%ld)\n", PTR_ERR(pdata->powerup));
 		pdata->powerup = NULL;
  	}
 
-	pdata->wakeup = fwnode_gpiod_get_index(&np->fwnode, "wakeup", 0, GPIOD_OUT_LOW, "bes2600_wakeup");
+	pdata->wakeup = devm_fwnode_gpiod_get_index(dev, &np->fwnode, "wakeup", 0, GPIOD_OUT_LOW, "bes2600_wakeup");
 	if (IS_ERR(pdata->wakeup)) {
 		bes2600_err(BES2600_DBG_SDIO, "can't request wakeup_gpio (%ld)\n", PTR_ERR(pdata->wakeup));
 		pdata->wakeup = NULL;
  	}
 
-	pdata->host_wakeup = fwnode_gpiod_get_index(&np->fwnode, "host-wakeup", 0, GPIOD_IN, "bes2600_host_irq");
+	pdata->host_wakeup = devm_fwnode_gpiod_get_index(dev, &np->fwnode, "host-wakeup", 0, GPIOD_IN, "bes2600_host_irq");
 	if (IS_ERR(pdata->host_wakeup)) {
 		bes2600_err(BES2600_DBG_SDIO, "can't request host_wake_gpio (%ld)\n", PTR_ERR(pdata->host_wakeup));
 		pdata->host_wakeup = NULL;
  	}
 
 	pdata->wlan_bt_hostwake_registered = false;
-exit:
-	return ret;
-}
-
-static void bes2600_platform_data_deinit(void)
-{
-	const struct bes2600_platform_data_sdio *pdata = bes2600_get_platform_data();
-
-	gpiod_put(pdata->reset);
-	gpiod_put(pdata->powerup);
-	gpiod_put(pdata->wakeup);
-	gpiod_put(pdata->host_wakeup);
+	pdata->inited = true;
+	return 0;
 }
 
 static int bes2600_sdio_reset(struct sbus_priv *self)
 {
-	const struct bes2600_platform_data_sdio *plat_data = bes2600_get_platform_data();
-
-	bes2600_info(BES2600_DBG_SDIO, "%s ...\n", __func__);
-
-	gpiod_direction_output(plat_data->reset, GPIOD_OUT_HIGH);
+	const struct bes2600_platform_data_sdio *pdata = bes2600_get_platform_data();
+	bes2600_info(BES2600_DBG_SDIO, "%s\n", __func__);
+	gpiod_direction_output(pdata->reset, GPIOD_OUT_HIGH);
 	mdelay(50);
-	gpiod_direction_output(plat_data->reset, GPIOD_OUT_LOW);
-
+	gpiod_direction_output(pdata->reset, GPIOD_OUT_LOW);
 	return 0;
 }
 
@@ -1810,12 +1783,9 @@ err:
 static int bes2600_sdio_power_up(void)
 {
 	const struct bes2600_platform_data_sdio *pdata = bes2600_get_platform_data();
-	int ret;
-
-	ret = bes2600_sdio_on(pdata);
+	int ret = bes2600_sdio_on(pdata);
 	if (ret)
-		goto err_on;
-
+		return ret;
 
 #ifdef PLAT_ALLWINNER
 	mdelay(10);
@@ -1826,9 +1796,6 @@ static int bes2600_sdio_power_up(void)
 #endif
 
 	return 0;
-
-err_on:
-	return ret;
 }
 
 static void bes2600_sdio_power_down(struct sbus_priv *self)
@@ -1845,9 +1812,6 @@ static void bes2600_sdio_power_down(struct sbus_priv *self)
 	sdio_writeb(self->func, tmp_val, BES_HOST_INT_REG_ID, &ret);
 	sdio_release_host(self->func);
 #else
-#if defined(PLAT_ROCKCHIP)
-	rockchip_wifi_power(0);
-#endif
 
 #if defined(PLAT_ALLWINNER)
 	sunxi_wlan_set_power(false);
@@ -1865,14 +1829,10 @@ static void bes2600_sdio_power_down(struct sbus_priv *self)
 
 static int bes2600_sdio_power_switch(struct sbus_priv *self, int on)
 {
-	int ret = 0;
-	if(on) {
-		ret = bes2600_sdio_power_up();
-	} else {
-		bes2600_sdio_power_down(self);
-	}
-
-	return ret;
+	if (on)
+		return bes2600_sdio_power_up();
+	bes2600_sdio_power_down(self);
+	return 0;
 }
 
 static void bes2600_sdio_halt_device(struct sbus_priv *self)
@@ -1955,6 +1915,12 @@ static int bes2600_sdio_probe(struct sdio_func *func,
 	aw_gpio_irq_handle = 0;
 #endif
 	spin_lock_init(&self->lock);
+
+	struct device *dev = &func->dev;
+	int ret = bes2600_platform_data_init(dev);
+	if (ret)
+		goto err;
+
 	self->pdata = bes2600_get_platform_data();
 	self->func = func;
 	self->dev = &func->dev;
@@ -2073,26 +2039,22 @@ bool bes2600_is_net_dev_created(struct sbus_priv *bus_priv)
 
 /* Disconnect Function to be called by SDIO stack when
  * device is disconnected */
-static void bes2600_sdio_disconnect(struct sdio_func *func)
+static void bes2600_sdio_remove(struct sdio_func *func)
 {
 	struct sbus_priv *self = sdio_get_drvdata(func);
-	const struct bes2600_platform_data_sdio *pdata = bes2600_get_platform_data();
 
 	func->card->host->caps &= ~MMC_CAP_NONREMOVABLE;
 	bes2600_info(BES2600_DBG_SDIO, "%s called:%p,%d\n", __func__, func, func->num);
 
 	if (self) {
-#ifndef CONFIG_BES2600_USE_GPIO_IRQ
 		sdio_claim_host(func);
+#ifndef CONFIG_BES2600_USE_GPIO_IRQ
 		sdio_release_irq(func);
-		sdio_release_host(func);
 #else
 		free_irq(irq->start, self);
 #endif  //CONFIG_BES2600_USE_GPIO_IRQ
-		sdio_claim_host(func);
 		sdio_disable_func(func);
 		sdio_release_host(func);
-		bes2600_sdio_off(pdata);
 		bes2600_reg_set_object(NULL, NULL);
 		bes2600_chrdev_set_sbus_priv_data(NULL, false);
 		sdio_set_drvdata(func, NULL);
@@ -2383,7 +2345,7 @@ static struct sdio_driver sdio_driver = {
 	.name		= "bes2600_wlan",
 	.id_table	= bes2600_sdio_ids,
 	.probe		= bes2600_sdio_probe,
-	.remove		= bes2600_sdio_disconnect,
+	.remove		= bes2600_sdio_remove,
 	.drv = {
 		.pm = &bes2600_pm_ops,
 	}
@@ -2401,18 +2363,33 @@ static int __init bes2600_sdio_init(void)
 	bes2600_dbg(BES2600_DBG_SDIO, "%s type:%d sig_mode:%d\n", __func__,
 			bes2600_chrdev_get_fw_type(), bes2600_chrdev_is_signal_mode());
 
-	if ((ret = bes2600_platform_data_init()))
-		goto exit;
+	ret = bes2600_chrdev_init(&bes2600_sdio_sbus_ops);
+	if (ret) {
+		bes2600_err(BES2600_DBG_SDIO, "can't init char device\n");
+		return ret;
+	}
+
+	ret = sdio_register_driver(&sdio_driver);
+	if (ret) {
+		bes2600_err(BES2600_DBG_SDIO, "can't register driver\n");
+		bes2600_chrdev_free();
+		return ret;
+	}
 
 	pdata = bes2600_get_platform_data();
-
-	ret = bes2600_chrdev_init(&bes2600_sdio_sbus_ops);
-	if(ret)
-		goto err_chardev;
+	if (!pdata->inited) {
+		bes2600_err(BES2600_DBG_SDIO, "pdata->inited = %d, can't init platform data\n", pdata->inited);
+		sdio_unregister_driver(&sdio_driver);
+		bes2600_chrdev_free();
+		return -EINVAL;
+	}
 
 	ret = bes2600_sdio_on(pdata);
-	if (ret)
-		goto err_on;
+	if (ret) {
+		sdio_unregister_driver(&sdio_driver);
+		bes2600_chrdev_free();
+		return ret;
+	}
 
 #ifdef PLAT_ALLWINNER
 	mdelay(10);
@@ -2422,35 +2399,17 @@ static int __init bes2600_sdio_init(void)
 	bes2600_info(BES2600_DBG_SDIO, "%s: power up, rescan card.\n", __FUNCTION__);
 #endif
 
-	ret = sdio_register_driver(&sdio_driver);
-	if (ret)
-		goto err_reg;
-
 	return 0;
-
-err_reg:
-	bes2600_sdio_off(pdata);
-err_on:
-	bes2600_chrdev_free();
-err_chardev:
-	bes2600_platform_data_deinit();
-exit:
-	return ret;
 }
 
 /* Called at Driver Unloading */
 static void __exit bes2600_sdio_exit(void)
 {
-	const struct bes2600_platform_data_sdio *pdata = bes2600_get_platform_data();
 	struct sbus_priv *priv =  bes2600_chrdev_get_sbus_priv_data();
 	bes2600_info(BES2600_DBG_SDIO, "%s called\n", __func__);
-
-	if (priv)
-		bes2600_unregister_net_dev(priv);
+	bes2600_unregister_net_dev(priv);
 	sdio_unregister_driver(&sdio_driver);
 	bes2600_chrdev_free();
-	bes2600_sdio_off(pdata);
-	bes2600_platform_data_deinit();
 }
 
 module_init(bes2600_sdio_init);
