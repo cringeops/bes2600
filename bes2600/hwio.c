@@ -155,12 +155,6 @@ int bes2600_data_write(const void *buf, size_t buf_len)
 {
 	int ret, retry = 1;
 	u32 addr = 0;
-#ifdef CONFIG_BES2600_WLAN_SPI
-	struct HI_MSG_HDR {
-		u16 MsgLen;
-		u16 MsgId;
-	} *pMsg;
-#endif
 
 	BUG_ON(!bes2600_subs_ops);
 	bes2600_subs_ops->lock(bes2600_sbus_priv);
@@ -184,14 +178,6 @@ int bes2600_data_write(const void *buf, size_t buf_len)
 		}
 	}
 #else
-#ifdef CONFIG_BES2600_WLAN_SPI
-	#define IS_DRIVER_VENDOR_CMD(X) ((X & 0x0C00) == 0x0C00)
-	pMsg = (struct HI_MSG_HDR *)buf;
-	if (IS_DRIVER_VENDOR_CMD(pMsg->MsgId)) {
-		addr = BES_MISC_DATA_ADDR;
-		pr_err("mcu message detected, %x\n", BES_MISC_DATA_ADDR);
-	}
-#endif
 	while (retry <= MAX_RETRY) {
 		ret = bes2600_subs_ops->sbus_memcpy_toio(bes2600_sbus_priv, addr, buf, buf_len);
 		if (ret) {

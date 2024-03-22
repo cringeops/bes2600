@@ -77,27 +77,6 @@ struct sbus_ops {
 	int (*reboot)(struct sbus_priv *self);
 };
 
-#ifdef CONFIG_BES2600_WLAN_USB
-/* tx/rx pipes for usb */
-enum BES2600_USB_PIPE_ID {
-	BES2600_USB_PIPE_TX_CTRL = 0,
-	BES2600_USB_PIPE_TX_WLAN,
-	BES2600_USB_PIPE_TX_BT,
-	BES2600_USB_PIPE_RX_CTRL,
-	BES2600_USB_PIPE_RX_WLAN,
-	BES2600_USB_PIPE_RX_BT,
-	BES2600_USB_PIPE_MAX
-};
-
-// virtual register definition
-#define BES_USB_CONTROL_REG	0
-#define BES_USB_STATUS_REG	1
-
-// virtual register bits definition
-#define BES_USB_FW_TX_DONE              BIT(0)
-#define BES_USB_FW_RX_INDICATION        BIT(1)
-#endif
-
 void bes2600_irq_handler(struct bes2600_common *priv);
 
 /* This MUST be wrapped with hwbus_ops->lock/unlock! */

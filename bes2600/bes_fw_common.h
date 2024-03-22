@@ -94,10 +94,8 @@ struct exec_struct_t {
 	u32 exec_addr;
 };
 
-#if defined(FW_DOWNLOAD_BY_SDIO) || defined(FW_DOWNLOAD_BY_USB)
 void bes_parse_fw_info(const u8 *data, u32 data_len, u32 *load_addr, u32 *crc32);
 int bes_frame_rsp_check(void *rsp, u8 frame_num);
 const u8* bes2600_get_firmware_version_info(const u8 *data, u32 count);
-#endif
 
 #endif

@@ -29,21 +29,14 @@
 #include "scan.h"
 #include "debug.h"
 #include "pm.h"
-#include "bes2600_cfgvendor.h"
-#include "bes2600_driver_mode.h"
 #include "bes2600_factory.h"
 #include "bes_chardev.h"
 #include "txrx_opt.h"
-
-#ifdef PLAT_ROCKCHIP
-#include <linux/rfkill-wlan.h>
-#endif
 
 MODULE_AUTHOR("Dmitry Tarnyagin <dmitry.tarnyagin@stericsson.com>");
 MODULE_DESCRIPTION("Softmac BES2600 common code");
 MODULE_LICENSE("GPL");
 MODULE_ALIAS("bes2600");
-MODULE_IMPORT_NS(VFS_internal_I_am_really_a_filesystem_and_am_NOT_a_driver);
 
 static u8 bes2600_mac_template[ETH_ALEN] = {
 #if (GET_MAC_ADDR_METHOD == 2)||(GET_MAC_ADDR_METHOD == 3)
@@ -61,12 +54,7 @@ static u8 bes2600_mac_template[ETH_ALEN] = {
 #define PATH_WIFI_MACADDR_TMP	"/data/.mac.info"
 #endif
 
-#ifdef CUSTOM_FEATURE
-#define PATH_WIFI_PSM_INFO		"/data/.psm.info"
-static int savedpsm = 0;
-#endif
-
-#if defined(CUSTOM_FEATURE) ||(GET_MAC_ADDR_METHOD == 2) || (GET_MAC_ADDR_METHOD == 3)
+#if (GET_MAC_ADDR_METHOD == 2) || (GET_MAC_ADDR_METHOD == 3)
 int access_file(char *path, char *buffer, int size, int isRead);
 #endif
 
@@ -467,7 +455,6 @@ struct ieee80211_hw *bes2600_init_common(size_t hw_priv_data_len)
 	hw->wiphy->n_addresses = CW12XX_MAX_VIFS;
 	hw->wiphy->addresses = hw_priv->addresses;
 	hw->wiphy->max_remain_on_channel_duration = 500;
-	hw->wiphy->reg_notifier = bes2600_reg_notifier;
 	//hw->channel_change_time = 500;	/* TODO: find actual value */
 	/* hw_priv->beacon_req_id = cpu_to_le32(0); */
 	hw->queues = 4;
@@ -584,10 +571,6 @@ struct ieee80211_hw *bes2600_init_common(size_t hw_priv_data_len)
 	hw_priv->test_frame.len = 0;
 #endif /* CONFIG_BES2600_TESTMODE */
 
-#ifdef CONFIG_BES2600_VENDOR_CMD
-	bes2600_set_vendor_command(hw->wiphy);
-#endif
-
 #if defined(CONFIG_BES2600_WSM_DUMPS_SHORT)
 	hw_priv->wsm_dump_max_size = 20;
 #endif /* CONFIG_BES2600_WSM_DUMPS_SHORT */
@@ -649,10 +632,6 @@ void bes2600_free_common(struct ieee80211_hw *dev)
 		hw_priv->test_frame.len = 0;
 	}
 #endif /* CONFIG_BES2600_TESTMODE */
-
-#ifdef CONFIG_BES2600_VENDOR_CMD
-	bes2600_vendor_command_detach(dev->wiphy);
-#endif
 
 	/* unsigned int i; */
 
@@ -805,34 +784,6 @@ int bes2600_core_probe(const struct sbus_ops *sbus_ops,
 	struct ieee80211_hw *dev;
 	struct bes2600_common *hw_priv;
 
-#if defined(CONFIG_BES2600_WLAN_USB)
-
-#ifdef CUSTOM_FEATURE/* To control ps mode */
-	struct wsm_operational_mode mode = {
-		.power_mode = wsm_power_mode_quiescent,
-		.disableMoreFlagUsage = true,
-	};
-	char buffer[2];
-    savedpsm = mode.power_mode;
-	if(access_file(PATH_WIFI_PSM_INFO,buffer,2,1) > 0) {
-		if(buffer[0] == 0x30) {
-			mode.power_mode = wsm_power_mode_active;
-		}
-		else
-		{
-			if(savedpsm)
-				mode.power_mode = savedpsm;
-			else /* Set default */
-				mode.power_mode = wsm_power_mode_quiescent;
-		}
-		bes2600_info(BES2600_DBG_INIT, "BES2600 : PSM changed to %d\n",mode.power_mode);
-	}
-	else {
-		bes2600_info(BES2600_DBG_INIT, "BES2600 : Using default PSM %d\n",mode.power_mode);
-	}
-#endif
-#endif
-
 	dev = bes2600_init_common(sizeof(struct bes2600_common));
 	if (!dev)
 		goto err;
@@ -894,7 +845,7 @@ void bes2600_core_release(struct bes2600_common *self)
 	return;
 }
 
-#if defined(CUSTOM_FEATURE) ||(GET_MAC_ADDR_METHOD == 2) || (GET_MAC_ADDR_METHOD == 3) /* To use macaddr and ps mode of customers */
+#if (GET_MAC_ADDR_METHOD == 2) || (GET_MAC_ADDR_METHOD == 3) /* To use macaddr and ps mode of customers */
 int access_file(char *path, char *buffer, int size, int isRead)
 {
 	int ret=0;

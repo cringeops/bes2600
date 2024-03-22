@@ -27,9 +27,7 @@
 
 static int bes2600_bh(void *arg);
 
-#ifdef CONFIG_BES2600_WLAN_SDIO
 extern void sdio_work_debug(struct sbus_priv *self);
-#endif
 
 /* TODO: Verify these numbers with WSM specification. */
 #define DOWNLOAD_BLOCK_SIZE_WR	(0x1000 - 4)
@@ -899,9 +897,7 @@ tx:
 }
 #else
 
-#ifdef CONFIG_BES2600_WLAN_SDIO
 extern int bes2600_bh_read_ctrl_reg(struct bes2600_common *priv, u32 *ctrl_reg);
-#endif
 
 static void bes2600_bh_parse_ipv4_data(struct iphdr *ip)
 {
@@ -1003,7 +999,7 @@ static int bes2600_bh_rx_helper(struct bes2600_common *priv, int *tx)
 	int rx = 0;
 	u32 confirm_label = 0x0; /* wsm to mcu cmd cnfirm label */
 
-#if defined(CONFIG_BES2600_WLAN_USB) || defined(CONFIG_BES2600_WLAN_SPI) || defined(BES_SDIO_RX_MULTIPLE_ENABLE)
+#if defined(BES_SDIO_RX_MULTIPLE_ENABLE)
 	skb = (struct sk_buff *)priv->sbus_ops->pipe_read(priv->sbus_priv);
 	if (!skb)
 		return 0;
@@ -1156,13 +1152,6 @@ static int bes2600_bh_tx_helper(struct bes2600_common *hw_priv,
 	struct wsm_hdr *wsm;
 	int vif_selected;
 
-#ifdef CONFIG_BES2600_WLAN_USB
-	u32 packet_id;
-	u8 queueId;
-	struct wsm_tx *wsm_info;
-	struct bes2600_queue *queue;
-#endif
-
 	wsm_alloc_tx_buffer(hw_priv);
 	ret = wsm_get_tx(hw_priv, &data, &tx_len, tx_burst, &vif_selected);
 	if (ret <= 0) {
@@ -1196,45 +1185,7 @@ static int bes2600_bh_tx_helper(struct bes2600_common *hw_priv,
 	//bes2600_dbg(BES2600_DBG_BH, "usb send buff len:%u.priv->hw_bufs_used:%d.\n", tx_len, priv->hw_bufs_used);
 	bes2600_dbg(BES2600_DBG_BH, "%s id:0x%04x seq:%d\n", __func__,
 		wsm->id, hw_priv->wsm_tx_seq[WSM_TXRX_SEQ_IDX(wsm->id)]);
-#ifdef CONFIG_BES2600_WLAN_USB
-	ret = hw_priv->sbus_ops->pipe_send(hw_priv->sbus_priv, 1, tx_len, data);
-	#if 0
-	int count = 0;
-	while(priv->hw_bufs_used > 1)
-	{
-		mdelay(1);
-		count++;
-		if(count>2)
-			break;
-	}
-	#endif
-	if(ret < 0) {
-		/* requeue packet when send fail */
-		wsm_info = (struct wsm_tx *)data;
-		if (data == hw_priv->wsm_cmd.ptr) {
-			spin_lock(&hw_priv->wsm_cmd.lock);
-			hw_priv->wsm_cmd.ret = 1;
-			hw_priv->wsm_cmd.done = 1;
-			hw_priv->wsm_cmd.arg = NULL;
-			hw_priv->wsm_cmd.ptr = NULL;
-			spin_unlock(&hw_priv->wsm_cmd.lock);
-			wake_up(&hw_priv->wsm_cmd_wq);
-		} else {
-			packet_id =  __le32_to_cpu(wsm_info->packetID);
-			queueId = bes2600_queue_get_queue_id(packet_id);
-			queue = &hw_priv->tx_queue[queueId];
-#ifdef CONFIG_BES2600_TESTMODE
-			bes2600_queue_requeue(hw_priv, queue, packet_id, false);
-#else
-			bes2600_queue_requeue(queue, packet_id, false);
-#endif
-		}
-		wsm_release_tx_buffer(hw_priv, 1);
-		return 0;
-	} else if (vif_selected != -1) {
-		hw_priv->hw_bufs_used_vif[vif_selected]++;
-	}
-#else
+
 #ifndef BES_SDIO_TX_MULTIPLE_ENABLE
 	if (WARN_ON(bes2600_data_write(data, tx_len))) {
 #else
@@ -1247,7 +1198,6 @@ static int bes2600_bh_tx_helper(struct bes2600_common *hw_priv,
 
 	if (vif_selected != -1)
 		hw_priv->hw_bufs_used_vif[vif_selected] ++;
-#endif
 
 	if (hw_priv->wsm_enable_wsm_dumps)
 		print_hex_dump_bytes("--> ",
@@ -1480,9 +1430,7 @@ static int bes2600_bh(void *arg)
 			/* Check to see if we have any outstanding frames */
 			if (hw_priv->hw_bufs_used && (!rx || !tx)) {
 				bes2600_err(BES2600_DBG_BH,  "usedbuf:%u. rx:%u. tx:%u.\n", hw_priv->hw_bufs_used, rx, tx);
-				#ifdef CONFIG_BES2600_WLAN_SDIO
 				sdio_work_debug(hw_priv->sbus_priv);
-				#endif
 				#ifdef CONFIG_BES2600_WLAN_BES
 				bes2600_err(BES2600_DBG_BH,  "Missed interrupt? (%d frames outstanding)\n",
 					   hw_priv->hw_bufs_used);
@@ -1550,9 +1498,7 @@ static int bes2600_bh(void *arg)
 		ret = bes2600_bh_rx_helper(hw_priv, &tx);
 		if (ret < 0) {
 			bes2600_err(BES2600_DBG_BH, "bes2600_bh_rx_helper fail\n");
-			#ifdef CONFIG_BES2600_WLAN_SDIO
 			sdio_work_debug(hw_priv->sbus_priv);
-			#endif
 			// break; // rx error
 			bes2600_chrdev_wifi_force_close(hw_priv, false);
 		}
@@ -1582,18 +1528,14 @@ static int bes2600_bh(void *arg)
 				/* Buffers full.  Ensure we process tx
 				 * after we handle rx..
 				 */
-				#ifndef CONFIG_BES2600_WLAN_SDIO
 				bes2600_err(BES2600_DBG_BH,  "bh tx not allowed.\n");
-				#endif
 				pending_tx = tx;
 				goto done_rx;
 			}
 			ret = bes2600_bh_tx_helper(hw_priv, &pending_tx, &tx_burst);
 			if (ret < 0) {
 				bes2600_err(BES2600_DBG_BH, "bes2600_bh_tx_helper fail\n");
-				#ifdef CONFIG_BES2600_WLAN_SDIO
 				sdio_work_debug(hw_priv->sbus_priv);
-				#endif
 				break;
 			}
 			if (ret > 0) {
@@ -1636,9 +1578,7 @@ static int bes2600_bh(void *arg)
 
 	if (!term) {
 		bes2600_err(BES2600_DBG_BH,  "[BH] Fatal error, exiting.\n");
-		#ifdef CONFIG_BES2600_WLAN_SDIO
 		sdio_work_debug(hw_priv->sbus_priv);
-		#endif
 		hw_priv->bh_error = 1;
 		/* TODO: schedule_work(recovery) */
 	}

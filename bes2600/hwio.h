@@ -237,7 +237,6 @@ static inline int bes2600_ahb_write_32(u32 addr, u32 val)
 #define BES_TX_DATA_ADDR	(0x0)
 #endif
 
-#ifdef CONFIG_BES2600_WLAN_SDIO
 #define SDIO_DEVICE_SEND_INT_LEN_SEPARATE
 
 #define BES_TX_CTRL_REG_ID	(0x0)
@@ -297,95 +296,5 @@ static inline int bes2600_ahb_write_32(u32 addr, u32 val)
 #define BES_SDIO_TX_MULTIPLE_NUM_NOSIGNAL (1)
 
 #define MAX_SDIO_TRANSFER_LEN (32768)
-#endif
-
-#ifdef CONFIG_BES2600_WLAN_SPI
-
-#define SPI_RD_CFG_REG_ID	(0xfffc0004)
-#define SPI_NCONTINUOUS_CFG_VAL	(0x0)
-#define SPI_CONTINUOUS_CFG_VAL	(0x1)
-#define SPI_RD_ADDR(X)	((X >> 2) | (1 << 30))
-#define SPI_WR_ADDR(X)	((X >> 2) | (0 << 30))
-
-#define SPI_MASTER_SECTION_BASE (0x20083000)
-
-#define BES_HOST_SYNC_REG_ID    (SPI_MASTER_SECTION_BASE)
-#define BES_SLAVE_SYNC_HEADER   (0xbe572002)
-
-#define BES_HOST_SUBINT_REG_ID  (SPI_MASTER_SECTION_BASE + 0x4)
-#define BES_SLAVE_STATUS_REG_ID (SPI_MASTER_SECTION_BASE + 0X8)
-
-#define BES_LMAC_BUF_NUMS	    (64)
-#define BES_LMAC_BUF_TOTAL      (SPI_MASTER_SECTION_BASE + 0xC)
-
-#define BES_TX_CTRL_REG_ID      (SPI_MASTER_SECTION_BASE + 0x10)
-#define BES_TX_NEXT_LEN_MASK    (0xffffffff)
-
-#define BES_LMAC_BUF_DESC       (SPI_MASTER_SECTION_BASE + 0x14)
-
-#define BES_TX_DATA_ADDR        (SPI_MASTER_SECTION_BASE + 0x114)
-
-#define MAX_SEND_PACKETS_NUM    (8)
-#define BES_MISC_DATA_ADDR      (BES_TX_DATA_ADDR + (1632 + 4 + 4) * MAX_SEND_PACKETS_NUM)
-
-#define BES_CALI_DATA_ADDR      (0x2008c000)
-#define BES_FACTORY_DATA_ADDR   (0x2008b000)
-
-
-#define BES_HOST_INT_REG_ID                     (0x40000098)
-#define BES_HOST_INT_RD_DONE                    (1 << 0)
-#define BES_HOST_INT_WR_DONE                    (1 << 1)
-#define BES_HOST_INT_SUBINT                     (1 << 2)
-
-#define BES_AP_WAKEUP_CFG                       (1 << 1)
-#define BES_SUBSYSTEM_MCU_DEACTIVE              (1 << 2)
-#define BES_SUBSYSTEM_MCU_ACTIVE                (1 << 3)
-#define BES_SUBSYSTEM_WIFI_DEACTIVE             (1 << 4)
-#define BES_SUBSYSTEM_WIFI_ACTIVE               (1 << 5)
-#define BES_SUBSYSTEM_WIFI_DEBUG                (1 << 6)
-#define BES_SUBSYSTEM_BT_DEACTIVE               (1 << 7)
-#define BES_SUBSYSTEM_BT_ACTIVE                 (1 << 8)
-#define BES_SUBSYSTEM_SYSTEM_CLOSE              (1 << 9)
-#define BES_DLD_FACTORY_DATA_DONE               (1 << 12)
-#define BES_DLD_DPD_DATA_DONE                   (1 << 13)
-#define BES_MISC_DATA_DONE                      (1 << 14)
-
-#define BES_SLAVE_STATUS_MCU_READY              (1 << 0)
-#define BES_SLAVE_STATUS_WIFI_CALI_READY        (1 << 1)
-#define BES_SLAVE_STATUS_WIFI_OPEN_READY        (1 << 2)
-#define BES_SLAVE_STATUS_BT_OPEN_READY          (1 << 3)
-#define BES_SLAVE_STATUS_MCU_WAKEUP_READY       (1 << 4)
-
-#define PACKET_TOTAL_LEN_V2(len)                ((len) & 0xfffffff)
-#define PACKET_COUNT_V2(len)                    (((len) >> 28) & 0xf)
-
-#endif
-
-#ifdef CONFIG_BES2600_WLAN_USB
-
-#define BES_AP_WAKEUP_CFG            (1 << 1)
-#define BES_SUBSYSTEM_MCU_DEACTIVE   (1 << 2)
-#define BES_SUBSYSTEM_MCU_ACTIVE     (1 << 3)
-#define BES_SUBSYSTEM_WIFI_DEACTIVE  (1 << 4)
-#define BES_SUBSYSTEM_WIFI_ACTIVE    (1 << 5)
-#define BES_SUBSYSTEM_WIFI_DEBUG     (1 << 6)
-#define BES_SUBSYSTEM_BT_DEACTIVE    (1 << 7)
-#define BES_SUBSYSTEM_BT_ACTIVE      (1 << 8)
-#define BES_SUBSYSTEM_SYSTEM_CLOSE   (1 << 9)
-#define BES_SUBSYSTEM_BT_WAKEUP      (1 << 10)
-#define BES_SUBSYSTEM_BT_SLEEP       (1 << 11)
-/* bit 12, 13, 14 used by spi */
-#define BES_SLAVE_STATUS_REBOOT      (1 << 15)
-
-#define BES_SLAVE_STATUS_MCU_READY          (1 << 0)
-#define BES_SLAVE_STATUS_DPD_READY          (1 << 1)
-#define BES_SLAVE_STATUS_WIFI_READY         (1 << 2)
-#define BES_SLAVE_STATUS_BT_READY           (1 << 3)
-#define BES_SLAVE_STATUS_MCU_WAKEUP_READY   (1 << 4)
-#define BES_SLAVE_STATUS_BT_WAKE_READY      (1 << 5)
-#define BES_SLAVE_STATUS_DPD_LOG_READY      (1 << 6)
-#define BES_SLAVE_STATUS_SEND_DPD_READY     (1 << 7)
-
-#endif /* CONFIG_BES2600_WLAN_USB */
 
 #endif /* BES2600_HWIO_H_INCLUDED */

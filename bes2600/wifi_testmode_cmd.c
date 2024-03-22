@@ -23,7 +23,6 @@
 #include "wsm.h"
 #include "bes2600.h"
 #include "bes_nl80211_testmode_msg.h"
-#include "bes2600_driver_mode.h"
 #include "bes_chardev.h"
 #include "bes2600_factory.h"
 
