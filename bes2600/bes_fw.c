@@ -12,16 +12,15 @@
 #include "bes2600.h"
 #include "hwio.h"
 #include "sbus.h"
-#include "bes2600_driver_mode.h"
 #include "bes_chardev.h"
 #include <linux/string.h>
 #include "bes2600_factory.h"
 
-#if defined(FW_DOWNLOAD_BY_SDIO)
-//#define BES_FW_BUILTIN
-#ifdef BES_FW_BUILTIN
-#include "bes_firmware.h"
-#endif
+// fw blob names
+#define BES2600_LOAD_BOOT_NAME      "bes2600/best2002_fw_boot_sdio.bin"
+#define BES2600_LOAD_FW_NAME        "bes2600/best2002_fw_sdio.bin"
+#define BES2600_LOAD_NOSIGNAL_FW_NAME   "bes2600/best2002_fw_sdio_nosignal.bin"
+#define BES2600_LOAD_BTRF_FW_NAME   "bes2600/best2002_fw_sdio_btrf.bin"
 
 struct platform_fw_t {
 	struct delayed_work work_data;
@@ -461,17 +460,7 @@ int bes_firmware_download(struct platform_fw_t *fw_data, const char *fw_name, bo
 	const u8 *data_p;
 	u8 *short_buf, *long_buf;
 
-#ifndef BES_FW_BUILTIN
-#ifdef CONFIG_FW_LOADER
-	const struct firmware *fw_bin;
-#else
-	struct my_firmware_t {
-		u8 *data;
-		size_t size;
-	} my_fw, *fw_bin;
-	struct file *my_fwp;
-#endif
-#endif
+const struct firmware *fw_bin;
 
 #ifdef DATA_DUMP_OBSERVE
 	char *observe;
@@ -488,47 +477,13 @@ int bes_firmware_download(struct platform_fw_t *fw_data, const char *fw_name, bo
 	struct run_fw_t run_addr;
 
 retry:
-#ifndef BES_FW_BUILTIN
-#ifdef CONFIG_FW_LOADER
 	ret = request_firmware(&fw_bin, fw_name, NULL);
 	if (ret) {
 		bes2600_err(BES2600_DBG_DOWNLOAD, "request firmware err:%d\n", ret);
 		return ret;
 	}
-#else
-	my_fwp = filp_open(fw_name, O_RDONLY, 0);
-	if (IS_ERR(my_fwp)) {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "firmware path invalid:%s,%ld.\n", fw_name, PTR_ERR(my_fwp));
-		return PTR_ERR(my_fwp);
-	}
-	fw_bin = &my_fw;
-	fw_bin->size = my_fwp->f_inode->i_size;
-	if (fw_bin->size <= 0) {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "wrong firmware size:%lu.\n", (long unsigned)fw_bin->size);
-		ret = -ENOENT;
-		goto close_fp;
-	}
-	fw_bin->data = kmalloc(fw_bin->size, GFP_KERNEL);
-	if (!fw_bin->data) {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "kmalloc firmware buffer failed.\n");
-		ret = -ENOMEM;
-		goto close_fp;
-	}
-	ret = kernel_read(my_fwp, fw_bin->data, fw_bin->size, &my_fwp->f_pos);
-	if (ret != fw_bin->size) {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "read firmware size error:%d,%lu.\n", ret, (long unsigned)fw_bin->size);
-		ret = -EIO;
-		goto free_mem;
-	}
-#endif
-	bes2600_dbg(BES2600_DBG_DOWNLOAD, "%s fw.size=%ld\n", __func__, (long)fw_bin->size);
-#endif
 
-#ifdef BES_FW_BUILTIN
-	bes_parse_fw_info((u8 *)firmware_device, FIRMWARE_SIZE	, &fw_info.addr, &crc32_t.crc32);
-#else
 	bes_parse_fw_info(fw_bin->data, fw_bin->size, &fw_info.addr, &crc32_t.crc32);
-#endif
 
 	fw_ver_ptr = bes2600_get_firmware_version_info(fw_bin->data, fw_bin->size);
 	if(fw_ver_ptr == NULL)
@@ -539,19 +494,11 @@ retry:
 	bes2600_dbg(BES2600_DBG_DOWNLOAD, "------load addr  :0x%08X\n", fw_info.addr);
 	bes2600_dbg(BES2600_DBG_DOWNLOAD, "------data crc   :0x%08X\n", crc32_t.crc32);
 
-#ifdef BES_FW_BUILTIN
-	code_length = FIRMWARE_SIZE - CODE_DATA_USELESS_SIZE;
-#else
 	code_length = fw_bin->size - CODE_DATA_USELESS_SIZE;
-#endif
 	bes2600_dbg(BES2600_DBG_DOWNLOAD, "------code size  :%d\n", code_length);
 
 	fw_info.len = code_length;
-#ifdef BES_FW_BUILTIN
-	data_p = (u8 *)firmware_device;
-#else
 	data_p = fw_bin->data;
-#endif
 
 	ret = bes_slave_rx_ready(fw_data, &buf_cnt, &tx_size, HZ);
 	if (!ret) {
@@ -886,16 +833,7 @@ err2:
 #endif
 err1:
 	kfree(short_buf);
-#ifndef BES_FW_BUILTIN
-#ifdef CONFIG_FW_LOADER
 	release_firmware(fw_bin);
-#else
-free_mem:
-	kfree(fw_bin->data);
-close_fp:
-	filp_close(my_fwp, NULL);
-#endif
-#endif
 	if (ret && retry_cnt < 3) {
 		retry_cnt++;
 		goto retry;
@@ -1123,12 +1061,7 @@ int bes2600_load_firmware_sdio(struct sbus_ops *ops, struct sbus_priv *priv)
 		return -ENOMEM;
 
 	bes2600_factory_lock();
-#ifdef FACTORY_SAVE_MULTI_PATH
-	if (!(factory_data = bes2600_get_factory_cali_data(file_buffer, &factory_data_len, FACTORY_PATH)) &&
-		!(factory_data = bes2600_get_factory_cali_data(file_buffer, &factory_data_len, FACTORY_DEFAULT_PATH))) {
-#else
 	if (!(factory_data = bes2600_get_factory_cali_data(file_buffer, &factory_data_len, FACTORY_PATH))) {
-#endif
 		bes2600_warn(BES2600_DBG_DOWNLOAD, "factory cali data get failed.\n");
 	} else {
 		bes2600_factory_data_check(factory_data);
@@ -1167,353 +1100,3 @@ int bes2600_load_firmware_sdio(struct sbus_ops *ops, struct sbus_priv *priv)
 
 	return ret;
 }
-#endif
-
-#if defined(BES2600_BOOT_UART_TO_SDIO)
-static struct uart_dld_work_t {
-	struct work_struct dld_work;
-	struct completion completion_data;
-	void *priv;
-} uart_dld_data;
-
-void bes2600_load_firmware_uart_work(struct work_struct *work)
-{
-	int ret;
-#if defined(BES2600_LOAD_FW_TOOL_PATH) && defined(BES2600_LOAD_FW_TOOL_DEVICE) && defined(BES2600_LOAD_BOOT_PATCH_NAME)
-	char cmd_path[] = BES2600_LOAD_FW_TOOL_PATH;
-	char *cmd_argv[] = {cmd_path, BES2600_LOAD_FW_TOOL_DEVICE, BES2600_LOAD_BOOT_PATCH_NAME, NULL};
-	char *cmd_envp[] = {"HOME=/", "PATH=/sbin:/bin:/user/bin:/system/bin:/usr/bin", NULL};
-#else
-	#error "BES uart download should specify fimrware load tool"
-#endif
-	complete(&uart_dld_data.completion_data);
-	if ((ret = call_usermodehelper(cmd_path, cmd_argv, cmd_envp, UMH_WAIT_PROC))) {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "call_usermodehelper failed:%d\n", ret);
-	} else {
-		msleep(200);
-		complete(&uart_dld_data.completion_data);
-	}
-}
-
-int bes2600_boot_uart_to_sdio(struct sbus_ops *ops)
-{
-	int ret, retry = 0;
-
-uart_dld:
-	memset(&uart_dld_data, 0, sizeof(uart_dld_data));
-	init_completion(&uart_dld_data.completion_data);
-	INIT_WORK(&uart_dld_data.dld_work, bes2600_load_firmware_uart_work);
-	schedule_work(&uart_dld_data.dld_work);
-	ret = wait_for_completion_interruptible_timeout(&uart_dld_data.completion_data, HZ);
-	if (ret <= 0) {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "%s uart dld boot patch start failed:%d\n",
-				__func__, ret);
-		return -110;
-	}
-
-	if (ops->reset)
-		ops->reset(NULL);
-
-	ret = wait_for_completion_interruptible_timeout(&uart_dld_data.completion_data, 10 * HZ);
-	if (ret <= 0) {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "%s uart dld boot patch end failed:%d(%d)\n",
-				__func__, ret, retry);
-		cancel_work_sync(&uart_dld_data.dld_work);
-		retry++;
-		if (retry < 10)
-			goto uart_dld;
-		else
-			return -110;
-	} else {
-		return 0;
-	}
-
-}
-#endif
-
-#if defined(FW_DOWNLOAD_BY_UART)
-static struct uart_dld_work_t {
-	struct work_struct dld_work;
-	struct completion completion_data;
-	char *fw_name;
-} uart_dld_data;
-
-void bes2600_load_firmware_uart_work(struct work_struct *work)
-{
-	int ret;
-#if defined(BES2600_LOAD_FW_TOOL_PATH) && defined(BES2600_LOAD_FW_TOOL_DEVICE)
-	char cmd_path[] = BES2600_LOAD_FW_TOOL_PATH;
-	char *cmd_argv[] = {cmd_path, BES2600_LOAD_FW_TOOL_DEVICE, uart_dld_data.fw_name, NULL};
-	char *cmd_envp[] = {"HOME=/", "PATH=/sbin:/bin:/user/bin:/system/bin:/usr/bin", NULL};
-#else
-	#error "BES uart download should specify fimrware load tool"
-#endif
-	complete(&uart_dld_data.completion_data);
-	if ((ret = call_usermodehelper(cmd_path, cmd_argv, cmd_envp, UMH_WAIT_PROC))) {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "call_usermodehelper failed:%d\n", ret);
-	} else {
-		msleep(200);
-		complete(&uart_dld_data.completion_data);
-	}
-}
-
-#ifdef FW_DOWNLOAD_UART_DAEMON
-extern int bes2600_load_uevent(char *evn[]);
-#endif
-
-static int bes2600_load_firmware_uart_wrapper(struct sbus_ops *ops, char *name)
-{
-	int ret = 0;
-#ifdef FW_DOWNLOAD_UART_DAEMON
-	char driver[] = "DRIVER=bes2600_wlan";
-	char vendor[100] = "VENDOR_DESC=";
-	char *env[] = {driver, vendor, NULL};
-#endif
-	memset(&uart_dld_data, 0, sizeof(uart_dld_data));
-	init_completion(&uart_dld_data.completion_data);
-#ifndef FW_DOWNLOAD_UART_DAEMON
-	uart_dld_data.fw_name = name;
-#else
-	memcpy(vendor + strlen(vendor), name, strlen(name) + 1);
-#endif
-	INIT_WORK(&uart_dld_data.dld_work, bes2600_load_firmware_uart_work);
-
-#ifndef FW_DOWNLOAD_UART_DAEMON
-	schedule_work(&uart_dld_data.dld_work);
-	ret = wait_for_completion_interruptible_timeout(&uart_dld_data.completion_data, HZ);
-	if (ret <= 0) {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "%s uart dld firmware start failed:%d\n",
-				__func__, ret);
-		return -110;
-	}
-
-	if (ops->reset) {
-		ops->reset(NULL);
-	}
-
-	ret = wait_for_completion_interruptible_timeout(&uart_dld_data.completion_data, 10 * HZ);
-	if (ret <= 0) {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "%s uart dld firmware end failed:%d\n",
-				__func__, ret);
-		return -110;
-	} else {
-		return 0;
-	}
-
-#else
-
-	if (ops->reset) {
-		ops->reset(NULL);
-	}
-
-	if ((ret = bes2600_load_uevent(env))) {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "%s uart dld firmware start failed:%d\n",
-				__func__, ret);
-	}
-	return ret;
-#endif
-}
-
-static int bes_read_dpd_data(struct sbus_ops *ops, struct sbus_priv *priv)
-{
-	int ret = 0, i;
-	u32 dpd_data_len, dpd_ready = 0;
-	u8 *dpd_data;
-	u32 *temp;
-	unsigned long dpd_started = jiffies;
-
-	do {
-		bes2600_reg_read(BES_SLAVE_STATUS_REG_ID, &dpd_ready, 4);
-		if (dpd_ready & BES_SLAVE_STATUS_WIFI_CALI_READY)
-			break;
-		else
-			msleep(1000);
-	} while (time_before(jiffies, dpd_started + 10 * HZ));
-	if (!(dpd_ready & BES_SLAVE_STATUS_WIFI_CALI_READY)) {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "wait wifi cali timeout(%x)\n", dpd_ready);
-		return -110;
-	}
-
-	if ( (ret = bes2600_reg_read(BES_TX_CTRL_REG_ID, &dpd_data_len, 4))) {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "%s get dpd data len failed(%d)\n", __func__, dpd_data_len);
-		goto exit;
-	}
-
-	/* dpd size check */
-	if (dpd_data_len != DPD_BIN_SIZE) {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "get dpd data size err:%u\n", dpd_data_len);
-		return -1;
-	}
-
-	dpd_data = bes2600_chrdev_get_dpd_buffer(DPD_BIN_FILE_SIZE);
-	if (!dpd_data) {
-		ret = -ENOMEM;
-		goto exit;
-	}
-
-	ops->lock(priv);
-	ret = ops->sbus_memcpy_fromio(priv, BES_CALI_DATA_ADDR, dpd_data, dpd_data_len);
-	ops->unlock(priv);
-	if (ret) {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "%s get dpd data failed(%d)\n", __func__, ret);
-		goto free_dpd;
-	} else {
-		temp = (u32 *)dpd_data;
-		for (i = 0; i < (dpd_data_len >> 2); i++) {
-			temp[i] = swab32(temp[i]);
-		}
-		ret = bes2600_chrdev_update_dpd_data();
-		if (ret)
-			goto free_dpd;
-	}
-
-	return ret;
-
-free_dpd:
-	bes2600_chrdev_free_dpd_data();
-exit:
-	return ret;
-}
-
-static int bes_write_dpd_data(struct sbus_ops *ops, struct sbus_priv *priv)
-{
-	int ret;
-	u32 dpd_data_len = 0, cfg = BES_DLD_DPD_DATA_DONE;
-	const u8 *dpd_data = NULL;
-
-	dpd_data = bes2600_chrdev_get_dpd_data(&dpd_data_len);
-	BUG_ON(!dpd_data);
-
-	ops->lock(priv);
-	ret = ops->sbus_memcpy_toio(priv, BES_CALI_DATA_ADDR, dpd_data, dpd_data_len);
-	ops->unlock(priv);
-	if (ret) {
-		bes2600_err(BES2600_DBG_SPI, "%s rewrite dpd data failed:%d\n", __func__, ret);
-		return ret;
-	} else {
-		bes2600_err(BES2600_DBG_SPI, "%s rewrite dpd data success\n", __func__);
-	}
-	return bes2600_reg_write(BES_HOST_SUBINT_REG_ID, &cfg, 4);
-}
-
-#ifdef CONFIG_BES2600_CALIB_FROM_LINUX
-static int bes_write_factory_data(struct sbus_ops *ops, struct sbus_priv *priv)
-{
-	int ret = 0;
-	u32 factory_data_len = 0, cfg = BES_DLD_FACTORY_DATA_DONE;
-	u8 *factory_data = NULL;
-	u8 *file_buffer = NULL;
-
-	if (!(file_buffer = bes2600_factory_get_file_buffer()))
-		return -ENOMEM;
-
-	bes2600_factory_lock();
-	factory_data = bes2600_get_factory_cali_data(file_buffer, &factory_data_len, FACTORY_PATH);
-	if (!factory_data) {
-		bes2600_warn(BES2600_DBG_DOWNLOAD, "factory cali data get failed.\n");
-	} else {
-		bes2600_factory_data_check(factory_data);
-		factory_little_endian_cvrt(factory_data);
-		ops->lock(priv);
-		ret = ops->sbus_memcpy_toio(priv, BES_FACTORY_DATA_ADDR, factory_data, factory_data_len);
-		ops->unlock(priv);
-		if (ret) {
-			bes2600_err(BES2600_DBG_DOWNLOAD, "download factory data failed(%d)\n", ret);
-			return ret;
-		} else {
-			bes2600_err(BES2600_DBG_DOWNLOAD, "download factory data success:%x\n", *(u32 *)factory_data);
-		}
-	}
-	bes2600_factory_free_file_buffer(file_buffer);
-	bes2600_factory_unlock();
-
-	return bes2600_reg_write(BES_HOST_SUBINT_REG_ID, &cfg, 4);
-}
-#endif /* CONFIG_BES2600_CALIB_FROM_LINUX */
-
-static int bes_slave_sync(struct sbus_ops *ops, struct sbus_priv *priv)
-{
-	u32 sync_header;
-	u32 cfg = SPI_CONTINUOUS_CFG_VAL;
-	unsigned long sync_started = jiffies;
-
-	do {
-		bes2600_reg_read(BES_HOST_SYNC_REG_ID, &sync_header, 4);
-		if (sync_header != BES_SLAVE_SYNC_HEADER)
-			msleep(100);
-		else
-			break;
-	} while (time_before(jiffies, sync_started + 5 * HZ));
-
-	if (sync_header != BES_SLAVE_SYNC_HEADER) {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "spi slave sync failed(%x)\n", sync_header);
-		return -110;
-	}
-
-	return bes2600_reg_write(SPI_RD_CFG_REG_ID, &cfg, 4);
-}
-
-int bes2600_load_firmware_uart(struct sbus_ops *ops, struct sbus_priv *priv)
-{
-	int ret;
-	u32 dpd_data_len = 0;
-	const u8 *dpd_data = NULL;
-	int fw_type = bes2600_chrdev_get_fw_type();
-	char *fw_name;
-
-	bes2600_info(BES2600_DBG_DOWNLOAD, "%s fw_type:%d.\n", __func__, fw_type);
-
-	if (fw_type == BES2600_FW_TYPE_BT) {
-		ret = bes2600_load_firmware_uart_wrapper(ops, BES2600_LOAD_BTRF_FW_NAME);
-	} else {
-reload:
-		dpd_data = bes2600_chrdev_get_dpd_data(&dpd_data_len);
-		if (!dpd_data) {
-			bes2600_info(BES2600_DBG_DOWNLOAD, "%s boot bin\n", __func__);
-			ret = bes2600_load_firmware_uart_wrapper(ops, BES2600_LOAD_BOOT_NAME);
-			if (ret) {
-				bes2600_err(BES2600_DBG_DOWNLOAD, "%s download boot failed:%d\n", __func__, ret);
-				goto exit;
-			}
-
-			if (ops->init)
-				ops->init(priv, NULL);
-
-			if ((ret = bes_slave_sync(ops, priv)))
-				goto exit;
-
-			if ((ret = bes_read_dpd_data(ops, priv)))
-				goto exit;
-
-			/* wifi nosignal: load best2002_fw_spi_nosignal.bin */
-			if (fw_type == BES2600_FW_TYPE_WIFI_NO_SIGNAL)
-				goto reload;
-
-			/* normal: judge whether load best2002_fw_spi.bin or not*/
-			if (!bes2600_chrdev_is_wifi_opened())
-				ret = 1;
-			else
-				goto reload;
-		} else {
-			fw_name = (fw_type == BES2600_FW_TYPE_WIFI_SIGNAL) ? BES2600_LOAD_FW_NAME : BES2600_LOAD_NOSIGNAL_FW_NAME;
-			if ((ret = bes2600_load_firmware_uart_wrapper(ops, fw_name))) {
-				bes2600_err(BES2600_DBG_SPI, "%s download normal fw failed:%d\n", __func__, ret);
-				goto exit;
-			}
-
-			if ((ret = bes_slave_sync(ops, priv)))
-				goto exit;
-
-#ifdef CONFIG_BES2600_CALIB_FROM_LINUX
-			if ((ret = bes_write_factory_data(ops, priv)))
-				goto exit;
-#endif
-			if ((ret = bes_write_dpd_data(ops, priv)))
-				goto exit;
-		}
-	}
-
-exit:
-	return ret;
-}
-#endif

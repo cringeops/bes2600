@@ -29,7 +29,6 @@
 #ifdef CONFIG_BES2600_TESTMODE
 #include "bes_nl80211_testmode_msg.h"
 #endif
-#include "bes2600_driver_mode.h"
 #include "bes_chardev.h"
 #include "bes2600_factory.h"
 #include "epta_coex.h"

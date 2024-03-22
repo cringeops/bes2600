@@ -31,35 +31,8 @@
 #include "sbus.h"
 #include "bes2600_plat.h"
 #include "hwio.h"
-#include "bes2600_driver_mode.h"
 #include "bes_chardev.h"
 
-#ifdef PLAT_ROCKCHIP
-#include <linux/rfkill-wlan.h>
-#endif
-
-#ifdef PLAT_ALLWINNER
-#include <linux/sunxi-gpio.h>
-
-extern int sunxi_wlan_get_bus_index(void);
-extern void sunxi_mmc_rescan_card(unsigned id);
-extern void sw_mci_rescan_card(unsigned id, unsigned insert);
-extern void sunxi_wlan_set_power(bool on_off);
-#endif
-
-#ifdef PLAT_CVITEK_182X
-#include <linux/regulator/consumer.h>
-
-extern int cvi_sdio_rescan(void);
-extern int cvi_get_wifi_pwr_on_gpio(void);
-extern int cvi_get_wifi_reset_gpio(void);
-extern int cvi_get_wifi_wakeup_gpio(void);
-#endif
-
-#if defined(BES2600_BOOT_UART_TO_SDIO)
-static struct sbus_ops bes2600_sdio_sbus_ops;
-extern int bes2600_boot_uart_to_sdio(struct sbus_ops *ops);
-#endif
 static void sdio_scan_work(struct work_struct *work);
 static void bes2600_sdio_power_down(struct sbus_priv *self);
 struct bes2600_platform_data_sdio *bes2600_get_platform_data(void);
@@ -149,10 +122,6 @@ static const struct sdio_device_id bes2600_sdio_ids[] = {
 };
 
 #ifdef BES2600_GPIO_WAKEUP_AP
-#ifdef PLAT_ALLWINNER
-extern int sunxi_wlan_get_oob_irq_flags(void);
-extern int sunxi_wlan_get_oob_irq(void);
-#endif
 static int bes2600_gpio_wakeup_ap_config(struct sbus_priv *priv);
 #endif
 
@@ -427,9 +396,6 @@ static int bes2600_sdio_reg_write(struct sbus_priv *self, u32 reg,
 #ifndef CONFIG_BES2600_USE_GPIO_IRQ
 static void bes2600_sdio_irq_handler(struct sdio_func *func)
 {
-#ifdef PLAT_CVITEK_182X
-	int ret =0;
-#endif
 	struct sbus_priv *self = sdio_get_drvdata(func);
 	unsigned long flags;
 
@@ -439,11 +405,6 @@ static void bes2600_sdio_irq_handler(struct sdio_func *func)
 
 	bes2600_dbg(BES2600_DBG_SDIO, "\n %s called, fw_started:%d \n",
 			 __func__, self->fw_started);
-#ifdef PLAT_CVITEK_182X
-	sdio_claim_host(func);
-	sdio_readb(func, 1, &ret);
-	sdio_release_host(func);
-#endif
 	if (likely(self->fw_started && self->core)) {
 		queue_work(self->sdio_wq, &self->rx_work);
 		self->last_irq_timestamp = jiffies;
@@ -474,17 +435,6 @@ static int bes2600_request_irq(struct sbus_priv *self,
 	u8 cccr;
 	int ret0 = 0;
 
-#ifdef PLAT_ALLWINNER_SUN6I   // for Allwinner we define plat specific API to allocate IRQ line
-		aw_gpio_irq_handle = sw_gpio_irq_request(irq->start, TRIG_EDGE_POSITIVE, (peint_handle)handler, self);
-		if (aw_gpio_irq_handle == 0) {
-			bes2600_err(BES2600_DBG_SDIO, "[%s]  err sw_gpio_irq_request..   :%d\n", __func__,aw_gpio_irq_handle);
-			return -1;
-		} else
-		{
-			ret = 0;
-		}
-#endif  // PLAT_ALLWINNER_SUN6I
-
 	/* Hack to access Fuction-0 */
 	func_num = self->func->num;
 	self->func->num = 0;
@@ -514,10 +464,6 @@ set_func:
 		bes2600_err(BES2600_DBG_SDIO, ("%s data timeout.\n", __FUNCTION__));
 
 	self->func->num = func_num;
-#ifdef PLAT_ALLWINNER_SUN6I
-	sw_gpio_irq_free(aw_gpio_irq_handle);
-	aw_gpio_irq_handle = 0;
-#endif
 	bes2600_err(BES2600_DBG_SDIO, "[%s]  fail exiting sw_gpio_irq_request..   :%d\n",__func__, ret);
 	return ret;
 }
@@ -556,10 +502,6 @@ static int bes2600_sdio_irq_unsubscribe(struct sbus_priv *self)
 	unsigned long flags;
 #ifdef CONFIG_BES2600_USE_GPIO_IRQ
 	const struct resource *irq = self->pdata->irq;
-#ifdef PLAT_ALLWINNER_SUN6I
-	sw_gpio_irq_free(aw_gpio_irq_handle);
-	aw_gpio_irq_handle = 0;
-#endif
 #endif
 
 	WARN_ON(!self->irq_handler);
@@ -589,43 +531,15 @@ static int bes2600_sdio_irq_unsubscribe(struct sbus_priv *self)
 static int bes2600_sdio_off(const struct bes2600_platform_data_sdio *pdata)
 {
 	bes2600_info(BES2600_DBG_SDIO, "%s enter\n", __func__);
-
-#if defined(PLAT_ALLWINNER)
-	sunxi_wlan_set_power(false);
-#endif
-
-#if defined(PLAT_ROCKCHIP)
-	rockchip_wifi_set_carddetect(0);
-	rockchip_wifi_power(0);
-#endif
-
 	gpiod_direction_output(pdata->powerup, GPIOD_OUT_LOW);
 	gpiod_direction_output(pdata->reset, GPIOD_OUT_LOW);
-
 	return 0;
 }
 
 static int bes2600_sdio_on(const struct bes2600_platform_data_sdio *pdata)
 {
 	bes2600_info(BES2600_DBG_SDIO, "%s enter\n", __func__);
-
-#if defined(PLAT_ALLWINNER)
-	sunxi_wlan_set_power(true);
-#endif
-
-#ifdef PLAT_ROCKCHIP
-	rockchip_wifi_power(0);
-	rockchip_wifi_power(1);
-	bes2600_chrdev_start_bus_probe();
-	rockchip_wifi_set_carddetect(1);
-#endif
-
 	gpiod_direction_output(pdata->powerup, GPIOD_OUT_HIGH);
-
-#if defined(BES2600_BOOT_UART_TO_SDIO)
-	return bes2600_boot_uart_to_sdio(&bes2600_sdio_sbus_ops);
-#endif
-
 	return 0;
 }
 
@@ -999,19 +913,7 @@ failed:
 
 static void sdio_scan_work(struct work_struct *work)
 {
-#ifdef PLAT_ALLWINNER
-	//sw_mci_rescan_card(AW_SDIOID, 1);
-	sunxi_mmc_rescan_card(sunxi_wlan_get_bus_index());
-#endif
-
-#ifdef PLAT_ROCKCHIP
-	rockchip_wifi_set_carddetect(1);
-#endif
-
-#ifdef PLAT_CVITEK_182X
-	cvi_sdio_rescan();
-#endif
-	bes2600_info(BES2600_DBG_SDIO, "%s: power down, rescan card\n", __FUNCTION__);
+	bes2600_warn(BES2600_DBG_SDIO, "%s: this function does nothing\n", __FUNCTION__);
 }
 
 static void *bes2600_sdio_pipe_read(struct sbus_priv *self)
@@ -1824,15 +1726,6 @@ static int bes2600_sdio_power_up(void)
 	if (ret)
 		goto err_on;
 
-
-#ifdef PLAT_ALLWINNER
-	mdelay(10);
-	bes2600_chrdev_start_bus_probe();
-	//sw_mci_rescan_card(AW_SDIOID, 1);
-	sunxi_mmc_rescan_card(sunxi_wlan_get_bus_index());
-	bes2600_info(BES2600_DBG_SDIO, "%s: power up, rescan card.\n", __FUNCTION__);
-#endif
-
 	return 0;
 
 err_on:
@@ -1853,13 +1746,6 @@ static void bes2600_sdio_power_down(struct sbus_priv *self)
 	sdio_writeb(self->func, tmp_val, BES_HOST_INT_REG_ID, &ret);
 	sdio_release_host(self->func);
 #else
-#if defined(PLAT_ROCKCHIP)
-	rockchip_wifi_power(0);
-#endif
-
-#if defined(PLAT_ALLWINNER)
-	sunxi_wlan_set_power(false);
-#endif
 	struct bes2600_platform_data_sdio *pdata = bes2600_get_platform_data();
 	gpiod_direction_output(pdata->powerup, GPIOD_OUT_LOW);
 #endif
@@ -1959,9 +1845,6 @@ static int bes2600_sdio_probe(struct sdio_func *func,
 		bes2600_dbg(BES2600_DBG_SDIO, "Can't allocate SDIO sbus_priv.");
 		return -ENOMEM;
 	}
-#ifdef PLAT_ALLWINNER_SUN6I
-	aw_gpio_irq_handle = 0;
-#endif
 	spin_lock_init(&self->lock);
 	self->pdata = bes2600_get_platform_data();
 	self->func = func;
@@ -2118,14 +2001,6 @@ static void bes2600_sdio_disconnect(struct sdio_func *func)
 
 #ifdef BES2600_GPIO_WAKEUP_AP
 
-#if defined(PLAT_ALLWINNER)
-extern int sunxi_wlan_get_oob_irq_flags(void);
-extern int sunxi_wlan_get_oob_irq(void);
-#elif defined(PLAT_ROCKCHIP)
-extern int rockchip_wifi_get_oob_irq_flag(void);
-extern int rockchip_wifi_get_oob_irq(void);
-#endif
-
 static irqreturn_t bes2600_wlan_bt_hostwake_thread(int irq, void *dev_id)
 {
 	struct bes2600_platform_data_sdio *pdata = bes2600_get_platform_data();
@@ -2147,29 +2022,13 @@ static int bes2600_wlan_bt_hostwake_register(void)
 	int ret = 0;
 	struct bes2600_platform_data_sdio *pdata = bes2600_get_platform_data();
 
-#if defined(PLAT_ALLWINNER)
-	int irq_flags = sunxi_wlan_get_oob_irq_flags();
-	int irq = sunxi_wlan_get_oob_irq();
-#elif defined(PLAT_ROCKCHIP)
-	int irq_flags = rockchip_wifi_get_oob_irq_flag();
-	int irq = rockchip_wifi_get_oob_irq();
-#endif
+	// flipping internal struct registers considered as nothing
+	bes2600_warn(BES2600_DBG_SDIO, "%s: this function does nothing\n", __FUNCTION__);
 
 	if (pdata->wlan_bt_hostwake_registered == true) {
 		bes2600_err(BES2600_DBG_SDIO, "wlan hostwake register repeatedly.\n");
 		return -1;
 	}
-
-#if defined(PLAT_ALLWINNER) || defined(PLAT_ROCKCHIP)
-	irq_flags |= IRQF_ONESHOT;
-	irq_flags &= (~IRQF_NO_SUSPEND);
-	if (((ret = request_threaded_irq(irq, NULL, bes2600_wlan_bt_hostwake_thread,
-		irq_flags, "bes2600_wlan_hostwake", pdata)) != 0) ||
-	    ((ret = enable_irq_wake(irq)) != 0)) {
-		bes2600_err(BES2600_DBG_SDIO, "request_irq or irq_wake failed with %d\n", ret);
-		return ret;
-	}
-#endif
 
 	pdata->wlan_bt_hostwake_registered = true;
 	pdata->wakeup_source = false;
@@ -2182,23 +2041,13 @@ static void bes2600_wlan_bt_hostwake_unregister(void)
 	int ret = 0;
 	struct bes2600_platform_data_sdio *pdata = bes2600_get_platform_data();
 
-#if defined(PLAT_ALLWINNER)
-	int irq = sunxi_wlan_get_oob_irq();
-#elif defined(PLAT_ROCKCHIP)
-	int irq = rockchip_wifi_get_oob_irq();
-#endif
+	// flipping internal struct registers considered as nothing
+	bes2600_warn(BES2600_DBG_SDIO, "%s: this function does nothing\n", __FUNCTION__);
 
 	if (pdata->wlan_bt_hostwake_registered == false)
 		return;
 
 	pdata->wlan_bt_hostwake_registered = false;
-#if defined(PLAT_ALLWINNER) || defined(PLAT_ROCKCHIP)
-	ret = disable_irq_wake(irq);
-	if (ret) {
-		bes2600_err(BES2600_DBG_SDIO, "disable_irq_wake failed with %d\n", ret);
-	}
-	free_irq(irq, pdata);
-#endif
 }
 
 static int bes2600_gpio_wakeup_ap_config(struct sbus_priv *self)
@@ -2208,14 +2057,6 @@ static int bes2600_gpio_wakeup_ap_config(struct sbus_priv *self)
 
     if (!bes2600_chrdev_is_signal_mode())
         return 0;
-
-#if defined(PLAT_ALLWINNER)
-	irq_flags = sunxi_wlan_get_oob_irq_flags();
-	irq = sunxi_wlan_get_oob_irq();
-#elif defined(PLAT_ROCKCHIP)
-	irq_flags = rockchip_wifi_get_oob_irq_flag();
-	irq = rockchip_wifi_get_oob_irq();
-#endif
 
 	if (irq_flags & IRQF_TRIGGER_HIGH) {
 		wakeup_cfg = BES_AP_WAKEUP_GPIO_HIGH | BES_AP_WAKEUP_CFG_VALID;
@@ -2421,14 +2262,6 @@ static int __init bes2600_sdio_init(void)
 	ret = bes2600_sdio_on(pdata);
 	if (ret)
 		goto err_on;
-
-#ifdef PLAT_ALLWINNER
-	mdelay(10);
-	bes2600_chrdev_start_bus_probe();
-	//sw_mci_rescan_card(AW_SDIOID, 1);
-	sunxi_mmc_rescan_card(sunxi_wlan_get_bus_index());
-	bes2600_info(BES2600_DBG_SDIO, "%s: power up, rescan card.\n", __FUNCTION__);
-#endif
 
 	ret = sdio_register_driver(&sdio_driver);
 	if (ret)

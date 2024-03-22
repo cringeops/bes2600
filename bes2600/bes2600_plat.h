@@ -13,20 +13,6 @@
 
 #include <linux/ioport.h>
 
-struct bes2600_platform_data_spi {
-	u8 spi_bits_per_word;           /* REQUIRED */
-
-	/* All others are optional */
-	bool have_5ghz;
-	int reset;                     /* GPIO to RSTn signal (0 disables) */
-	int powerup;                   /* GPIO to POWERUP signal (0 disables) */
-	int irq_gpio;                  /* GPIO IRQ */
-	int host_wakeup_wlan;          /* GPIO to wakeup wlan */
-	const u8 *macaddr;  /* if NULL, use bes2600_mac_template module parameter */
-	const char *sdd_file;  /* if NULL, will use default for detected hw type */
-	void *priv;
-};
-
 struct bes2600_platform_data_sdio {
 	u16 ref_clk;                    /* REQUIRED (in KHz) */
 

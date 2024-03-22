@@ -17,7 +17,6 @@
 #include "sta.h"
 #include "bh.h"
 #include "sbus.h"
-#include "bes2600_driver_mode.h"
 #include "bes_chardev.h"
 
 #define BES2600_BEACON_SKIPPING_MULTIPLIER 3

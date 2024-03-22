@@ -12,7 +12,6 @@
 #include "bes2600.h"
 #include "hwio.h"
 #include "sbus.h"
-#include "bes2600_driver_mode.h"
 #include <linux/string.h>
 #include "bes_chardev.h"
 #include "hwio.h"
@@ -483,12 +482,7 @@ static int _bes2600_load_firmware_usb(struct platform_fw_t *fw_data)
 		return -ENOMEM;
 
 	bes2600_factory_lock();
-#ifdef FACTORY_SAVE_MULTI_PATH
-	if (!(factory_data = bes2600_get_factory_cali_data(file_buffer, &factory_data_len, FACTORY_PATH)) &&
-		!(factory_data = bes2600_get_factory_cali_data(file_buffer, &factory_data_len, FACTORY_DEFAULT_PATH))) {
-#else
 	if (!(factory_data = bes2600_get_factory_cali_data(file_buffer, &factory_data_len, FACTORY_PATH))) {
-#endif
 		bes2600_warn(BES2600_DBG_DOWNLOAD, "factory cali data get failed.\n");
 	} else {
 		bes2600_factory_data_check(factory_data);

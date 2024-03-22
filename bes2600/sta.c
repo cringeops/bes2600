@@ -32,13 +32,12 @@
 #include <net/netlink.h>
 #endif /* CONFIG_BES2600_TESTMODE */
 #include "net/mac80211.h"
-#include "bes2600_driver_mode.h"
 #include "bes_chardev.h"
 
 #include "epta_request.h"
 #include "epta_coex.h"
 
-#if defined(PLAT_ALLWINNER_R329) || defined(STANDARD_FACTORY_EFUSE_FLAG)
+#if defined(STANDARD_FACTORY_EFUSE_FLAG)
 #include "bes2600_factory.h"
 #endif
 
@@ -4299,7 +4298,7 @@ static int net_device_en_ip_offload(struct ieee80211_hw *hw, struct ieee80211_vi
 }
 #endif /* CONFIG_BES2600_KEEP_ALIVE */
 
-#if defined(PLAT_ALLWINNER_R329) || defined(STANDARD_FACTORY_EFUSE_FLAG)
+#if defined(STANDARD_FACTORY_EFUSE_FLAG)
 static int bes2600_factory_cali_to_mcu(struct ieee80211_hw *hw, enum bes2600_rf_cmd_type cmd_type)
 {
 	struct bes2600_common *hw_priv = hw->priv;
@@ -4453,11 +4452,7 @@ int bes2600_testmode_cmd(struct ieee80211_hw *hw, struct ieee80211_vif *vif, voi
 #endif
 		break;
 	case BES_MSG_SAVE_CALI_TXT_TO_FLASH:
-#ifdef PLAT_ALLWINNER_R329
-		ret = bes2600_factory_cali_to_mcu(hw, BES2600_RF_CMD_CALI_TXT_TO_FLASH);
-#else
 		ret = -EPERM;
-#endif
 		break;
 	case BES_MSG_SAVE_CALI_TXT_TO_EFUSE:
 #ifdef STANDARD_FACTORY_EFUSE_FLAG

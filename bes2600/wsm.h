@@ -2236,7 +2236,7 @@ int wsm_cpu_usage_cmd(struct bes2600_common *hw_priv);
 
 int wsm_wifi_status_cmd(struct bes2600_common *hw_priv, uint32_t status);
 
-#if defined(PLAT_ALLWINNER_R329) || defined(STANDARD_FACTORY_EFUSE_FLAG)
+#if defined(STANDARD_FACTORY_EFUSE_FLAG)
 int wsm_save_factory_txt_to_mcu(struct bes2600_common *hw_priv, const u8 *data, int if_id, enum bes2600_rf_cmd_type cmd_type);
 #endif
 #endif /* BES2600_HWIO_H_INCLUDED */

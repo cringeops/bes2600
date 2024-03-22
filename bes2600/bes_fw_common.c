@@ -15,7 +15,6 @@
 extern u32 bes_crc32_c(u32 crc, const u8 *data, u32 data_len);
 #endif
 
-#if defined(FW_DOWNLOAD_BY_SDIO) || defined(FW_DOWNLOAD_BY_USB)
 void bes_parse_fw_info(const u8 *data, u32 data_len, u32 *load_addr, u32 *crc32)
 {
 	u8 buffer[16];
@@ -122,4 +121,3 @@ const u8* bes2600_get_firmware_version_info(const u8 *data, u32 count)
 
         return NULL;
 }
-#endif
