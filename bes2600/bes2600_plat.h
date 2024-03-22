@@ -32,6 +32,7 @@ struct bes2600_platform_data_sdio {
 	const u8 *macaddr;  /* if NULL, use bes2600_mac_template module parameter */
 	const char *sdd_file;  /* if NULL, will use default for detected hw type */
 	bool wakeup_source; /* marks whether bes2600 is the wakeup souce or not */
+	bool inited; /* platform data init flag */
 };
 
 #endif /* BES2600_PLAT_H_INCLUDED */
