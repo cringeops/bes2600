@@ -16,6 +16,7 @@
 #include <linux/vmalloc.h>
 #include <linux/random.h>
 #include <linux/sched.h>
+#include <linux/of.h>
 #include <net/mac80211.h>
 
 #include "bes2600.h"
@@ -37,26 +38,6 @@ MODULE_AUTHOR("Dmitry Tarnyagin <dmitry.tarnyagin@stericsson.com>");
 MODULE_DESCRIPTION("Softmac BES2600 common code");
 MODULE_LICENSE("GPL");
 MODULE_ALIAS("bes2600");
-
-static u8 bes2600_mac_template[ETH_ALEN] = {
-#if (GET_MAC_ADDR_METHOD == 2)||(GET_MAC_ADDR_METHOD == 3)
-	0x00, 0x12, 0x34, 0x00, 0x00, 0x00
-#else
-	0x02, 0x80, 0xe1, 0x00, 0x00, 0x00 /* To use macaddr of customers */
-#endif
-};
-
-#if (GET_MAC_ADDR_METHOD == 2) /* To use macaddr and PS Mode of customers */
-#ifndef PATH_WIFI_MACADDR
-#define PATH_WIFI_MACADDR		"/efs/wifi/.mac.info"
-#endif
-#elif (GET_MAC_ADDR_METHOD == 3)
-#define PATH_WIFI_MACADDR_TMP	"/data/.mac.info"
-#endif
-
-#if (GET_MAC_ADDR_METHOD == 2) || (GET_MAC_ADDR_METHOD == 3)
-int access_file(char *path, char *buffer, int size, int isRead);
-#endif
 
 /* TODO: use rates and channels from the device */
 #define RATETAB_ENT(_rate, _rateid, _flags)		\
@@ -305,56 +286,34 @@ static void bes2600_init_wapi_cipher(struct ieee80211_hw *hw)
 
 static void bes2600_get_base_mac(struct bes2600_common *hw_priv)
 {
-#if (GET_MAC_ADDR_METHOD == 1)
-	u8 fixed_mac[ETH_ALEN];
-#endif
-#if (GET_MAC_ADDR_METHOD == 2)||(GET_MAC_ADDR_METHOD == 3) /* To use macaddr of customers */
-	char readmac[17+1]={0,};
-#endif
-	memcpy(hw_priv->addresses[0].addr, bes2600_mac_template, ETH_ALEN);
+	struct device_node *np;
+	const u8* addr = NULL;
+	bool ok = false;
+	int len;
 
-#if (GET_MAC_ADDR_METHOD == 1)
-	rockchip_wifi_mac_addr(fixed_mac);
-	memcpy(hw_priv->addresses[0].addr, fixed_mac, ETH_ALEN * sizeof(u8));
-	bes2600_info(BES2600_DBG_INIT, "get fixed mac address from flash=[%02x:%02x:%02x:%02x:%02x:%02x]\n", fixed_mac[0], fixed_mac[1],
-				fixed_mac[2], fixed_mac[3], fixed_mac[4], fixed_mac[5]);
-	if(fixed_mac[0] & (0x01)){
-		bes2600_warn(BES2600_DBG_INIT, "The MAC address is not suitable for unicast, change to random MAC\n");
-		memcpy(hw_priv->addresses[0].addr, bes2600_mac_template, ETH_ALEN);
+	np = of_find_compatible_node(NULL, NULL, "bestechnic,bes2600-sdio");
+	if (np) {
+		addr = of_get_property(np, "local-mac-address", &len);
+		if (addr && len == ETH_ALEN) {
+			memcpy(hw_priv->addresses[0].addr, addr, ETH_ALEN);
+			ok = true;
+		} else {
+			pr_err("bestechnic,bes2600 device node does not have valid local-mac-address property, random mac will be used!\n");
+		}
+		of_node_put(np);
+		} else {
+		pr_err("bestechnic,bes2600 device node NOT found, random mac will be used!\n");
 	}
+	if (!ok)
+		get_random_bytes(hw_priv->addresses[0].addr, ETH_ALEN);
 
-#elif (GET_MAC_ADDR_METHOD == 2) /* To use macaddr of customers */
-	if(access_file(PATH_WIFI_MACADDR,readmac,17,1) > 0) {
-		sscanf(readmac,"%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
-								(u8 *)&hw_priv->addresses[0].addr[0],
-								(u8 *)&hw_priv->addresses[0].addr[1],
-								(u8 *)&hw_priv->addresses[0].addr[2],
-								(u8 *)&hw_priv->addresses[0].addr[3],
-								(u8 *)&hw_priv->addresses[0].addr[4],
-								(u8 *)&hw_priv->addresses[0].addr[5]);
-	}
-#elif (GET_MAC_ADDR_METHOD == 3)
-	if(access_file(PATH_WIFI_MACADDR_TMP,readmac,17,1) > 0) {
-		sscanf(readmac,"%02X:%02X:%02X:%02X:%02X:%02X",
-								(u8 *)&hw_priv->addresses[0].addr[0],
-								(u8 *)&hw_priv->addresses[0].addr[1],
-								(u8 *)&hw_priv->addresses[0].addr[2],
-								(u8 *)&hw_priv->addresses[0].addr[3],
-								(u8 *)&hw_priv->addresses[0].addr[4],
-								(u8 *)&hw_priv->addresses[0].addr[5]);
-	}
-#endif
-	if (hw_priv->addresses[0].addr[3] == 0 &&
-	    hw_priv->addresses[0].addr[4] == 0 &&
-	    hw_priv->addresses[0].addr[5] == 0)
-		get_random_bytes(&hw_priv->addresses[0].addr[3], 3);
+	hw_priv->addresses[0].addr[0] &= ~1u;
 }
 
 static void bes2600_derive_mac(struct bes2600_common *hw_priv)
 {
 	memcpy(hw_priv->addresses[1].addr, hw_priv->addresses[0].addr, ETH_ALEN);
-	hw_priv->addresses[1].addr[5] =
-			hw_priv->addresses[0].addr[5] + 1;
+	hw_priv->addresses[1].addr[5] = hw_priv->addresses[0].addr[5] + 1;
 
 #ifdef P2P_MULTIVIF
 	memcpy(hw_priv->addresses[2].addr, hw_priv->addresses[1].addr,
