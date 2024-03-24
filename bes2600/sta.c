@@ -1730,7 +1730,10 @@ void bes2600_device_power_calc(struct bes2600_common *hw_priv,
 * This function is called to Parse the SDD file
  *to extract listen_interval and PTA related information
 */
-int bes2600_parse_SDD_file(struct bes2600_common *hw_priv)
+
+// UNUSED
+/*
+static int bes2600_parse_SDD_file(struct bes2600_common *hw_priv)
 {
 	u8 *sdd_data = (u8 *)hw_priv->sdd->data;
 #ifdef CONFIG_BES2600_TESTMODE
@@ -1828,10 +1831,8 @@ int bes2600_parse_SDD_file(struct bes2600_common *hw_priv)
 		hw_priv->conf_listen_interval = 0;
 	}
 #ifdef CONFIG_BES2600_TESTMODE
-	/* Max/Min Power Calculation for 2.4G */
 	bes2600_device_power_calc(hw_priv, max_output_power_2G,
 		fe_cor_2G, NL80211_BAND_2GHZ);
-	/* Max/Min Power Calculation for 5G */
 	bes2600_device_power_calc(hw_priv, max_output_power_5G,
 		fe_cor_5G, NL80211_BAND_5GHZ);
 
@@ -1846,19 +1847,12 @@ int bes2600_parse_SDD_file(struct bes2600_common *hw_priv)
 
 
 	bes2600_dbg(BES2600_DBG_TEST_MODE, "%s output power before %d\n",__func__,hw_priv->output_power);
-        /*BUG:TX output power is not set untill config_bes2600 is called*/
-        /*This would lead to 0 power set in fw and would effect scan & p2p-find*/
-        /*Setting to default value here from sdd which would be overwritten when*/
-        /*we make connection to AP.This value is used only during scan & p2p-ops*/
-        /*untill AP connection is made*/
         if (!hw_priv->output_power)
                 hw_priv->output_power=hw_priv->txPowerRange[NL80211_BAND_2GHZ].max_power_level;
 
         bes2600_dbg(BES2600_DBG_TEST_MODE, "%s output power after %d\n",__func__,hw_priv->output_power);
 #else
         bes2600_dbg(BES2600_DBG_STA, "%s output power before %d\n",__func__,hw_priv->output_power);
-        /*BUG:TX output power: Hardcoding to 20dbm if CCX is not enabled*/
-        /*TODO: This might change*/
         if (!hw_priv->output_power)
                 hw_priv->output_power=20;
         bes2600_dbg(BES2600_DBG_STA, "%s output power after %d\n",__func__,hw_priv->output_power);
@@ -1868,6 +1862,7 @@ int bes2600_parse_SDD_file(struct bes2600_common *hw_priv)
 	#undef SDD_PTA_CFG_ELT_ID
 	#undef FIELD_OFFSET
 }
+*/
 
 #ifndef USE_FEM
 #define USE_FEM 0
@@ -2042,7 +2037,7 @@ int bes2600_setup_mac(struct bes2600_common *hw_priv)
 	return 0;
 }
 
-void bes2600_pending_offchanneltx_work(struct work_struct *work)
+static void bes2600_pending_offchanneltx_work(struct work_struct *work)
 {
 	struct bes2600_vif *priv =
 	container_of(work, struct bes2600_vif, pending_offchanneltx_work.work);

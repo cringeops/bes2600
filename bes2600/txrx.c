@@ -1498,7 +1498,7 @@ void bes2600_skb_dtor(struct bes2600_common *hw_priv,
 			/* The interface may be already removed */
 			bes2600_tx_status(priv, skb);
 		}
-		ieee80211_tx_status(hw_priv->hw, skb);
+		ieee80211_tx_status_skb(hw_priv->hw, skb);
 	}
 
 }
