@@ -322,7 +322,7 @@ static void bes2600_derive_mac(struct bes2600_common *hw_priv)
 #endif
 }
 
-struct ieee80211_hw *bes2600_init_common(size_t hw_priv_data_len)
+static struct ieee80211_hw *bes2600_init_common(size_t hw_priv_data_len)
 {
 	int i;
 	struct ieee80211_hw *hw;
@@ -546,10 +546,8 @@ struct ieee80211_hw *bes2600_init_common(size_t hw_priv_data_len)
 	hw_priv->vif1_throttle = CW12XX_HOST_VIF1_11BG_THROTTLE;
 	return hw;
 }
-EXPORT_SYMBOL_GPL(bes2600_init_common);
 
-
-int bes2600_register_common(struct ieee80211_hw *dev)
+static int bes2600_register_common(struct ieee80211_hw *dev)
 {
 	struct bes2600_common *hw_priv = dev->priv;
 	int err;
@@ -578,9 +576,8 @@ int bes2600_register_common(struct ieee80211_hw *dev)
 			wiphy_name(dev->wiphy));
 	return 0;
 }
-EXPORT_SYMBOL_GPL(bes2600_register_common);
 
-void bes2600_free_common(struct ieee80211_hw *dev)
+static void bes2600_free_common(struct ieee80211_hw *dev)
 {
 	/* struct bes2600_common *hw_priv = dev->priv; */
 #ifdef CONFIG_BES2600_TESTMODE
@@ -596,9 +593,8 @@ void bes2600_free_common(struct ieee80211_hw *dev)
 
 	ieee80211_free_hw(dev);
 }
-EXPORT_SYMBOL_GPL(bes2600_free_common);
 
-void bes2600_unregister_common(struct ieee80211_hw *dev)
+static void bes2600_unregister_common(struct ieee80211_hw *dev)
 {
 	struct bes2600_common *hw_priv = dev->priv;
 	int i;
@@ -641,7 +637,6 @@ void bes2600_unregister_common(struct ieee80211_hw *dev)
 
 	bes2600_pwr_exit(hw_priv);
 }
-EXPORT_SYMBOL_GPL(bes2600_unregister_common);
 
 #if 0
 static void cw12xx_set_ifce_comb(struct bes2600_common *hw_priv,

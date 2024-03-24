@@ -34,10 +34,12 @@
 #include "bes_chardev.h"
 
 static void sdio_scan_work(struct work_struct *work);
+void sdio_work_debug(struct sbus_priv *self);
 static void bes2600_sdio_power_down(struct sbus_priv *self);
 struct bes2600_platform_data_sdio *bes2600_get_platform_data(void);
 int bes2600_register_net_dev(struct sbus_priv *bus_priv);
 int bes2600_unregister_net_dev(struct sbus_priv *bus_priv);
+bool bes2600_is_net_dev_created(struct sbus_priv *bus_priv);
 static void bes2600_gpio_wakeup_mcu(struct sbus_priv *self, int falg);
 static void bes2600_gpio_allow_mcu_sleep(struct sbus_priv *self, int falg);
 
@@ -552,7 +554,7 @@ static size_t bes2600_sdio_align_size(struct sbus_priv *self, size_t size)
 	return aligned;
 }
 
-int bes2600_sdio_set_block_size(struct sbus_priv *self, size_t size)
+static int bes2600_sdio_set_block_size(struct sbus_priv *self, size_t size)
 {
 	return sdio_set_block_size(self->func, size);
 }
@@ -630,7 +632,7 @@ static u8 bes_crc8(const u8 *data, unsigned len)
 }
 #endif
 
-int bes2600_sdio_read_ctrl(struct sbus_priv *self, u32 *ctrl_reg)
+static int bes2600_sdio_read_ctrl(struct sbus_priv *self, u32 *ctrl_reg)
 {
 	u8 data[4];
 	#ifndef BES_SDIO_OPTIMIZED_LEN
@@ -1415,7 +1417,7 @@ static void bes2600_gpio_allow_mcu_sleep(struct sbus_priv *self, int flag)
 	mutex_unlock(&self->io_mutex);
 }
 
-int bes2600_sdio_active(struct sbus_priv *self, int sub_system)
+static int bes2600_sdio_active(struct sbus_priv *self, int sub_system)
 {
 	u16 cfg;
 	u8 cfm = 0;
@@ -1592,7 +1594,7 @@ static void bes2600_sdio_empty_work(struct sbus_priv *self)
 static void bes2600_wlan_bt_hostwake_unregister(void);
 #endif
 
-int bes2600_sdio_deactive(struct sbus_priv *self, int sub_system)
+static int bes2600_sdio_deactive(struct sbus_priv *self, int sub_system)
 {
 	u16 cfg = 0;
 	u8 cfm = 0;
@@ -2074,7 +2076,7 @@ static int bes2600_gpio_wakeup_ap_config(struct sbus_priv *self)
 }
 #endif
 
-int bes2600_sdio_prepare(struct device *dev)
+static int bes2600_sdio_prepare(struct device *dev)
 {
 	struct sdio_func *func = dev_to_sdio_func(dev);
 	struct sbus_priv *self = sdio_get_drvdata(func);
@@ -2151,7 +2153,7 @@ static int bes2600_sdio_suspend_noirq(struct device *dev)
 	return 0;
 }
 
-int bes2600_sdio_resume_noirq(struct device *dev)
+static int bes2600_sdio_resume_noirq(struct device *dev)
 {
 	struct sdio_func *func = dev_to_sdio_func(dev);
 	struct sbus_priv *self = sdio_get_drvdata(func);

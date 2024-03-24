@@ -61,7 +61,7 @@ void bes2600_add_tx_delta_time(uint32_t tx_delta_time)
 	tx_delta_time_total_cnt++;
 }
 
-uint32_t bes2600_get_tx_delta_time(void)
+static uint32_t bes2600_get_tx_delta_time(void)
 {
 	if (tx_delta_time_total_cnt != 0)
 		return tx_delta_time_total / tx_delta_time_total_cnt;
@@ -69,14 +69,14 @@ uint32_t bes2600_get_tx_delta_time(void)
 		return 0;
 }
 
-void bes2600_clear_tx_delta_time(void)
+static void bes2600_clear_tx_delta_time(void)
 {
 	tx_delta_time_total_cnt = 0;
 	tx_delta_time_total = 0;
 	return ;
 }
 
-uint32_t bes2600_get_tx_ac_delta_time(int ac)
+static uint32_t bes2600_get_tx_ac_delta_time(int ac)
 {
 	uint32_t avg_time = 0;
 	int i = 0;
@@ -86,7 +86,7 @@ uint32_t bes2600_get_tx_ac_delta_time(int ac)
 	return avg_time / TX_AVG_TIME_COUNT;
 }
 
-void bes2600_clear_tx_ac_delta_time(int ac)
+static void bes2600_clear_tx_ac_delta_time(int ac)
 {
 	int i = 0;
 	for (i = 0; i < TX_AVG_TIME_COUNT; i++) {
@@ -112,7 +112,7 @@ void bes2600_add_tx_ac_delta_time(int ac, uint32_t del_time)
 }
 
 
-int bes2600_set_txrx_opt_param(struct bes2600_common *hw_priv,
+static int bes2600_set_txrx_opt_param(struct bes2600_common *hw_priv,
 			       struct bes2600_vif *priv,
 			       MIB_TXRX_OPT_PARAM  *para)
 {
@@ -126,7 +126,7 @@ int bes2600_set_txrx_opt_param(struct bes2600_common *hw_priv,
 	return ret;
 }
 
-int bes2600_enable_tx_shortgi(struct bes2600_common *hw_priv,
+static int bes2600_enable_tx_shortgi(struct bes2600_common *hw_priv,
 			      struct bes2600_vif *priv,
 			      u8 onoff)
 {
@@ -186,7 +186,7 @@ void bes2600_tx_status(struct bes2600_vif *priv, struct sk_buff *skb)
 }
 void bes2600_set_default_params(struct bes2600_common *hw_priv, struct bes2600_vif *priv);
 
-int bes2600_set_high_edca_params(struct bes2600_common *hw_priv, struct bes2600_vif *priv, int level)
+static int bes2600_set_high_edca_params(struct bes2600_common *hw_priv, struct bes2600_vif *priv, int level)
 {
 	struct wsm_edca_params arg;
 	int i = 0;
@@ -248,17 +248,17 @@ void bes2600_set_default_params(struct bes2600_common *hw_priv, struct bes2600_v
 	bes2600_dbg(BES2600_DBG_TXRX_OPT, "set edca default\n\r");
 	wsm_set_edca_params(hw_priv, &priv->edca, priv->if_id);
 }
-void bes2600_set_cca_method(struct bes2600_common *hw_priv, struct bes2600_vif *priv, int value)
+static void bes2600_set_cca_method(struct bes2600_common *hw_priv, struct bes2600_vif *priv, int value)
 {
 // todo set cca alg
 }
 
-void bes2600_set_dynamic_agc(struct bes2600_common *hw_priv, struct bes2600_vif *priv, int value)
+static void bes2600_set_dynamic_agc(struct bes2600_common *hw_priv, struct bes2600_vif *priv, int value)
 {
 // todo set agc alg
 }
 
-int bes2600_update_pwr_table(struct bes2600_common *hw_priv,
+static int bes2600_update_pwr_table(struct bes2600_common *hw_priv,
 			      struct bes2600_vif *priv,
 			      u8 pwr_tbl_idx)
 {
@@ -277,7 +277,7 @@ int bes2600_update_pwr_table(struct bes2600_common *hw_priv,
 	return ret;
 }
 
-int bes2600_get_tx_av_max_delta_time(void)
+static int bes2600_get_tx_av_max_delta_time(void)
 {
 	int max_avg = 0;
 	int i = 0;
@@ -291,7 +291,7 @@ int bes2600_get_tx_av_max_delta_time(void)
 	return max_avg;
 }
 
-bool bes2600_station_is_ap_ht40(struct bes2600_common *hw_priv)
+static bool bes2600_station_is_ap_ht40(struct bes2600_common *hw_priv)
 {
 
 	if (hw_priv->hw) {
@@ -459,7 +459,7 @@ static void txrx_opt_timer_stop(struct bes2600_common *hw_priv)
 	del_timer_sync(&hw_priv->txrx_opt_timer);
 }
 
-int bes2600_set_txrx_opt_default_param(struct bes2600_common * hw_priv)
+static int bes2600_set_txrx_opt_default_param(struct bes2600_common * hw_priv)
 {
 	MIB_TXRX_OPT_PARAM g_txrx_param = {2, (PROCTECT_MODE_RTS_CTS | PROCTECT_MODE_RTS_CTS_RETRY), 3000};
 	struct bes2600_vif *priv = __cw12xx_hwpriv_to_vifpriv(hw_priv, 0);
@@ -497,7 +497,7 @@ int bes2600_set_txrx_opt_default_param(struct bes2600_common * hw_priv)
 	return 0;
 }
 
-int bes2600_set_txrx_opt_unjoin_param(struct bes2600_common * hw_priv)
+static int bes2600_set_txrx_opt_unjoin_param(struct bes2600_common * hw_priv)
 {
 	MIB_TXRX_OPT_PARAM g_txrx_param = {1, 0, 2002};
 	struct bes2600_vif *priv = __cw12xx_hwpriv_to_vifpriv(hw_priv, 0);

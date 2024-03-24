@@ -150,7 +150,7 @@ static int coex_epta_freeze_update(struct bes2600_common *hw_priv)
  *  EPTA_FREEZE_THP,
  * note: the value of wlan_duration should be less than 100000.
  */
-int coex_epta_freeze(struct bes2600_common *hw_priv, int wlan_duration, uint32_t type)
+static int coex_epta_freeze(struct bes2600_common *hw_priv, int wlan_duration, uint32_t type)
 {
 	uint32_t i;
 
@@ -210,7 +210,7 @@ static int coex_epta_recover_update(struct bes2600_common *hw_priv)
 	return wsm_epta_cmd(hw_priv, &msg);
 }
 
-int coex_epta_recover(struct bes2600_common *hw_priv, uint32_t type)
+static int coex_epta_recover(struct bes2600_common *hw_priv, uint32_t type)
 {
 	uint32_t i;
 
@@ -232,7 +232,7 @@ int coex_epta_recover(struct bes2600_common *hw_priv, uint32_t type)
 	return coex_epta_recover_update(hw_priv);
 }
 
-int coex_epta_ps(struct bes2600_common *hw_priv, uint8_t enable)
+static int coex_epta_ps(struct bes2600_common *hw_priv, uint8_t enable)
 {
 	struct wsm_epta_msg msg;
 	if (hw_priv == NULL) {
@@ -257,7 +257,7 @@ int coex_epta_ps(struct bes2600_common *hw_priv, uint8_t enable)
 	return 0;
 }
 
-int coex_epta_set_connect(struct bes2600_common *hw_priv, int wlan_duration, int bt_duration, int epta)
+static int coex_epta_set_connect(struct bes2600_common *hw_priv, int wlan_duration, int bt_duration, int epta)
 {
 	struct wsm_epta_msg msg;
 	if (!hw_priv) {
@@ -401,7 +401,7 @@ void coex_set_epta_tts(struct bes2600_common *hw_priv, uint32_t tts_state)
 	}
 }
 
-void coex_set_epta_thp(struct bes2600_common *hw_priv, uint32_t total_bps)
+static void coex_set_epta_thp(struct bes2600_common *hw_priv, uint32_t total_bps)
 {
 	int epta_adjust_inv = 3;
 	int wlan_tp_low;

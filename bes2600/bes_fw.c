@@ -22,6 +22,8 @@
 #define BES2600_LOAD_NOSIGNAL_FW_NAME   "bes2600/best2002_fw_sdio_nosignal.bin"
 #define BES2600_LOAD_BTRF_FW_NAME   "bes2600/best2002_fw_sdio_btrf.bin"
 
+int bes2600_load_firmware_sdio(struct sbus_ops *ops, struct sbus_priv *priv);
+
 struct platform_fw_t {
 	struct delayed_work work_data;
 	struct sdio_func *func;
@@ -100,6 +102,8 @@ test_read_tx:
 	return ret;
 }
 
+// UNUSED
+/*
 int bes_host_slave_sync(struct bes2600_common *hw_priv)
 {
 	u8 val;
@@ -118,6 +122,7 @@ int bes_host_slave_sync(struct bes2600_common *hw_priv)
 	}
 	return ret;
 }
+*/
 
 //#define DATA_DUMP_OBSERVE
 
@@ -443,7 +448,7 @@ err1:
 	return ret;
 }
 
-int bes_firmware_download(struct platform_fw_t *fw_data, const char *fw_name, bool auto_run)
+static int bes_firmware_download(struct platform_fw_t *fw_data, const char *fw_name, bool auto_run)
 {
 	u8 frame_num = 0;
 	u8 last_frame_num = 0;
