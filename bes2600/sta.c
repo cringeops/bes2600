@@ -382,6 +382,13 @@ void bes2600_remove_interface(struct ieee80211_hw *dev,
 	atomic_set(&priv->enabled, 0);
 	down(&hw_priv->scan.lock);
 	down(&hw_priv->conf_lock);
+	if (!__cw12xx_hwpriv_to_vifpriv(hw_priv, priv->if_id)) {
+		bes2600_info(BES2600_DBG_STA, " !!! %s: interface addr %pM already removed\n",
+			     __func__, vif->addr);
+	        up(&hw_priv->conf_lock);
+	        up(&hw_priv->scan.lock);
+		return;
+	}
 	bes2600_tx_queues_lock(hw_priv);
 	wsm_lock_tx(hw_priv);
 	switch (priv->join_status) {
