@@ -15,4 +15,5 @@ sudo modprobe --force-vermagic ./bes2600.ko
 1. ~~Get rid of all unnecessary code (usb/spi parts that we couldn't care less about)~~ [done](https://github.com/cringeops/bes2600/pull/2)
 2. ~~Implement MAC setting the standard way via DT local-mac-address~~ [done, needs provided dtsi](https://github.com/cringeops/bes2600/pull/5)
 3. ~~Use devm API for GPIO management~~ [done](https://github.com/cringeops/bes2600/pull/6)
-4. Solve the sleep issue (PT2 doesn't go into sleep if bes2600 module is loaded)
+4. ~~Solve the sleep issue (PT2 doesn't go into sleep if bes2600 module is loaded)~~ [done](https://github.com/cringeops/bes2600/pull/9)
+5. Test power consumption and implement sleep mode for the chip
