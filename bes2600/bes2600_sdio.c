@@ -32,6 +32,7 @@
 #include "bes2600_plat.h"
 #include "hwio.h"
 #include "bes_chardev.h"
+#include "bes_log.h"
 
 static void sdio_scan_work(struct work_struct *work);
 void sdio_work_debug(struct sbus_priv *self);
@@ -184,12 +185,12 @@ static int bes_sdio_memcpy_io_helper(struct sdio_func *func, int write, void *da
 			/* to be simplified, consider this should not
 			 * happen, and to be continued;
 			 */
-			bes2600_dbg(BES2600_DBG_SDIO, "%s warning to be continued, align=%d max=%d", __func__, align_blocks, max_blocks);
+			bes_devel("%s warning to be continued, align=%d max=%d", __func__, align_blocks, max_blocks);
 			ret = -EINVAL;
 			goto out;
 		}
 		pads = align_blocks * func->cur_blksize - size;
-		bes2600_dbg(BES2600_DBG_SDIO, "%s sz=%u blk=%u pad=%u,dir=%d", __func__, size, align_blocks, pads, write);
+		bes_devel("%s sz=%u blk=%u pad=%u,dir=%d", __func__, size, align_blocks, pads, write);
 
 		memset(&mrq, 0, sizeof(mrq));
 		memset(&cmd, 0, sizeof(cmd));
@@ -284,7 +285,7 @@ static int bes_sdio_memcpy_io_helper(struct sdio_func *func, int write, void *da
 		while (remainder) {
 			size = min(remainder, sdio_max_byte_size(func));
 
-			bes2600_dbg(BES2600_DBG_SDIO, "%s size=%d dir=%d", __func__, size, write);
+			bes_devel("%s size=%d dir=%d", __func__, size, write);
 			if (write) {
 #ifndef BES_SDIO_RXTX_TOGGLE
 				ret = sdio_memcpy_toio(func, size, data_buf, size);
@@ -320,7 +321,7 @@ out:
 	kfree(pad_buf);
 #endif
 	if (ret) {
-		bes2600_err(BES2600_DBG_SDIO, "%s, err=%d(%d:%p:%d)",
+		bes_err("%s, err=%d(%d:%p:%d)",
 				__func__, ret, func->num, data_buf, size);
 #ifdef BES_SDIO_RXTX_TOGGLE
 				if (self && self->fw_started == true) {
@@ -328,7 +329,7 @@ out:
 						--self->tx_data_toggle;
 					else
 						--self->rx_data_toggle;
-					bes2600_err(BES2600_DBG_SDIO, "%s,toggle count:%u,%u\n", __func__, self->tx_data_toggle, self->rx_data_toggle);
+					bes_err("%s,toggle count:%u,%u\n", __func__, self->tx_data_toggle, self->rx_data_toggle);
 				}
 #endif
 	}
@@ -405,7 +406,7 @@ static void bes2600_sdio_irq_handler(struct sdio_func *func)
 		return;
 	}
 
-	bes2600_dbg(BES2600_DBG_SDIO, "\n %s called, fw_started:%d \n",
+	bes_devel("%s called, fw_started:%d \n",
 			 __func__, self->fw_started);
 	if (likely(self->fw_started && self->core)) {
 		queue_work(self->sdio_wq, &self->rx_work);
@@ -421,7 +422,7 @@ static u32 bes2600_gpio_irq_handler(void *dev_id)
 {
 	struct sbus_priv *self = (struct sbus_priv *)dev_id;
 
-	bes2600_dbg(BES2600_DBG_SDIO, "\n %s called \n", __func__);
+	bes_devel("\n %s called \n", __func__);
 	BUG_ON(!self);
 	if (self->irq_handler)
 		self->irq_handler(self->irq_priv);
@@ -463,10 +464,10 @@ set_func:
 	//AW judge sdio read write timeout, 1s
 	ret0 = sw_mci_check_r1_ready(self->func->card->host, 1000);
 	if (ret0 != 0)
-		bes2600_err(BES2600_DBG_SDIO, ("%s data timeout.\n", __FUNCTION__));
+		bes_err(("%s data timeout.\n", __FUNCTION__));
 
 	self->func->num = func_num;
-	bes2600_err(BES2600_DBG_SDIO, "[%s]  fail exiting sw_gpio_irq_request..   :%d\n",__func__, ret);
+	bes_err("[%s]  fail exiting sw_gpio_irq_request..   :%d\n",__func__, ret);
 	return ret;
 }
 #endif /* CONFIG_BES2600_USE_GPIO_IRQ */
@@ -486,7 +487,7 @@ static int bes2600_sdio_irq_subscribe(struct sbus_priv *self,
 	self->irq_handler = handler;
 	spin_unlock_irqrestore(&self->lock, flags);
 
-	bes2600_dbg(BES2600_DBG_SDIO,  "SW IRQ subscribe\n");
+	bes_devel( "SW IRQ subscribe\n");
 	sdio_claim_host(self->func);
 #ifndef CONFIG_BES2600_USE_GPIO_IRQ
 	ret = sdio_claim_irq(self->func, bes2600_sdio_irq_handler);
@@ -510,7 +511,7 @@ static int bes2600_sdio_irq_unsubscribe(struct sbus_priv *self)
 	if (!self->irq_handler)
 		return 0;
 
-	bes2600_dbg(BES2600_DBG_SDIO, "SW IRQ unsubscribe\n");
+	bes_devel("SW IRQ unsubscribe\n");
 
 /*
 #ifndef CONFIG_BES2600_USE_GPIO_IRQ
@@ -532,14 +533,14 @@ static int bes2600_sdio_irq_unsubscribe(struct sbus_priv *self)
 
 static void bes2600_sdio_off(const struct bes2600_platform_data_sdio *pdata)
 {
-	bes2600_info(BES2600_DBG_SDIO, "%s\n", __func__);
+	bes_devel("%s\n", __func__);
 	gpiod_direction_output(pdata->powerup, GPIOD_OUT_LOW);
 	gpiod_direction_output(pdata->reset, GPIOD_OUT_LOW);
 }
 
 static void bes2600_sdio_on(const struct bes2600_platform_data_sdio *pdata)
 {
-	bes2600_info(BES2600_DBG_SDIO, "%s\n", __func__);
+	bes_devel("%s\n", __func__);
 	gpiod_direction_output(pdata->powerup, GPIOD_OUT_HIGH);
 }
 
@@ -563,21 +564,21 @@ void sdio_work_debug(struct sbus_priv *self)
 {
 	u8 cfg;
 	int ret;
-	bes2600_err(BES2600_DBG_SDIO, "%s now=%u last irq timestamp=%u\n", __func__,
+	bes_err("%s now=%u last irq timestamp=%u\n", __func__,
 			(u32)jiffies_to_msecs(jiffies), jiffies_to_msecs(self->last_irq_timestamp));
-	bes2600_err(BES2600_DBG_SDIO, "%s rx ctrl: total=%u continuous=%u xfer=%u remain=%u zero=%u last=%x(%x) next=%d\n", __func__,
+	bes_err("%s rx ctrl: total=%u continuous=%u xfer=%u remain=%u zero=%u last=%x(%x) next=%d\n", __func__,
 			self->rx_total_ctrl_cnt, self->rx_continuous_ctrl_cnt, self->rx_xfer_cnt, self->rx_remain_ctrl_cnt, self->rx_zero_ctrl_cnt,
 			self->rx_last_ctrl, self->rx_valid_ctrl, self->next_toggle);
-	bes2600_err(BES2600_DBG_SDIO, "%s rx: last timestamp=%u, total=%u(%u), proc=%u\n", __func__,
+	bes_err("%s rx: last timestamp=%u, total=%u(%u), proc=%u\n", __func__,
 			(u32)jiffies_to_msecs(self->last_rx_data_timestamp),
 			self->rx_data_cnt, self->rx_xfer_cnt, self->rx_proc_cnt);
-	bes2600_err(BES2600_DBG_SDIO, "%s tx: last timestamp=%u, total=%u,%u, proc=%u\n", __func__,
+	bes_err("%s tx: last timestamp=%u, total=%u,%u, proc=%u\n", __func__,
 			(u32)jiffies_to_msecs(self->last_tx_data_timestamp),
 			self->tx_data_cnt, self->tx_xfer_cnt, self->tx_proc_cnt);
 	mutex_lock(&self->sbus_mutex);
 	sdio_claim_host(self->func);
 	bes2600_sdio_reg_read(self, BES_TX_CTRL_REG_ID + 1, &cfg, 1);
-	bes2600_err(BES2600_DBG_SDIO, "realtime ctrl=%x\n", cfg);
+	bes_err("realtime ctrl=%x\n", cfg);
 	cfg = BES_HOST_INT | BES_SUBSYSTEM_WIFI_DEBUG;
 	sdio_writeb(self->func, 0, BES_HOST_INT_REG_ID + 1, &ret);
 	sdio_writeb(self->func, cfg, BES_HOST_INT_REG_ID, &ret);
@@ -648,7 +649,7 @@ static int bes2600_sdio_read_ctrl(struct sbus_priv *self, u32 *ctrl_reg)
 	ret = bes2600_sdio_reg_read(self, BES_TX_NEXT_LEN_REG_ID, data, 4);
 	#endif
 	if (unlikely(ret)) {
-		bes2600_err(BES2600_DBG_SDIO, "[SBUS] Failed(%d) to read control register.\n", ret);
+		bes_err("[SBUS] Failed(%d) to read control register.\n", ret);
 		return ret;
 	}
 	self->rx_total_ctrl_cnt++;
@@ -681,7 +682,7 @@ static int bes2600_sdio_read_ctrl(struct sbus_priv *self, u32 *ctrl_reg)
 		}
 	} else {
 		/* length field crc fail */
-		//pr_err("%s, crc err:%x,%x,%x,%x,%x\n", __func__, data[0], data[1], data[2], data[3], check);
+		//bes_err("%s, crc err:%x,%x,%x,%x,%x\n", __func__, data[0], data[1], data[2], data[3], check);
 		//msleep(1);
 		*ctrl_reg = 0;
 		again = 1;
@@ -741,11 +742,11 @@ static int bes2600_sdio_packets_check(u32 ctrl_reg, u8 *packets)
 	 */
 	for (i = 0; i < packets_cnt; i++) {
 		pMsg = (struct HI_MSG_HDR *)(packets + total_cal);
-		bes2600_dbg(BES2600_DBG_SDIO, "%s, %x,%x\n", __func__, pMsg->MsgId, pMsg->MsgLen);
+		bes_devel("%s, %x,%x\n", __func__, pMsg->MsgId, pMsg->MsgLen);
 		single = pMsg->MsgLen;
 		single = (single + 3) & (~0x3);
 		if (unlikely(single > 1632)) {
-			bes2600_warn(BES2600_DBG_SDIO, "%s %d,len=%u,%dth,total=%u,%u\n", __func__, __LINE__, single, i,
+			bes_warn("%s %d,len=%u,%dth,total=%u,%u\n", __func__, __LINE__, single, i,
 					packets_length, total_cal);
 			if (i >= 1) {
 				return -201;
@@ -754,12 +755,12 @@ static int bes2600_sdio_packets_check(u32 ctrl_reg, u8 *packets)
 		total_cal += single;
 		#ifdef BES_SDIO_OPTIMIZED_LEN
 		if ((!pMsg->MsgLen) || (total_cal == packets_length)) {
-			//pr_info("%s, contain %d packets\n", __func__, i);
+			//bes_devel("%s, contain %d packets\n", __func__, i);
 			break;
 		}
 		#endif
 	}
-	bes2600_dbg(BES2600_DBG_SDIO, "%s, %d,%u,%u\n", __func__, packets_cnt, packets_length, total_cal);
+	bes_devel("%s, %d,%u,%u\n", __func__, packets_cnt, packets_length, total_cal);
 
 	#ifndef BES_SDIO_OPTIMIZED_LEN
 	if (WARN_ON(packets_length != total_cal)) {
@@ -767,7 +768,7 @@ static int bes2600_sdio_packets_check(u32 ctrl_reg, u8 *packets)
 	}
 	#else
 	if (packets_length < total_cal) {
-		pr_err("%s,%d pkt len=%u, total len=%u", __func__, __LINE__, packets_length, total_cal);
+		bes_err("%s,%d pkt len=%u, total len=%u", __func__, __LINE__, packets_length, total_cal);
 		return -202;
 	}
 	#endif
@@ -796,7 +797,7 @@ static int bes2600_sdio_extract_packets(struct sbus_priv *self, u32 ctrl_reg, u8
 			skb = dev_alloc_skb(packet_len);
 			if (likely(skb))
 				break;
-			bes2600_warn(BES2600_DBG_SDIO, "%s,%d no memory and sleep\n", __func__, __LINE__);
+			bes_warn("%s,%d no memory and sleep\n", __func__, __LINE__);
 			msleep(100);
 			++alloc_retry;
 		} while(alloc_retry < 10);
@@ -806,7 +807,7 @@ static int bes2600_sdio_extract_packets(struct sbus_priv *self, u32 ctrl_reg, u8
 		skb_trim(skb, 0);
 		skb_put(skb, packet_len);
 		memcpy(skb->data, &data[pos], packet_len);
-		bes2600_dbg(BES2600_DBG_SDIO, "%s, %d,%d\n", __func__, packet_len, pos);
+		bes_devel("%s, %d,%d\n", __func__, packet_len, pos);
 		spin_lock(&self->rx_queue_lock);
 		skb_queue_tail(&self->rx_queue, skb);
 		self->rx_data_cnt++;
@@ -840,7 +841,7 @@ static void sdio_rx_work(struct work_struct *work)
 		again = bes2600_sdio_read_ctrl(self, &ctrl_reg);
 
 		if(again == -EBUSY || again == -ETIMEDOUT) {
-			bes2600_err(BES2600_DBG_SDIO, "%s sdio read error\n", __func__);
+			bes_err("%s sdio read error\n", __func__);
 			bes2600_sdio_unlock(self);
 			goto failed;
 		}
@@ -863,7 +864,7 @@ static void sdio_rx_work(struct work_struct *work)
 				break;
 			} else {
 				crc_retry++;
-				bes2600_err(BES2600_DBG_SDIO, "%s sdio read crc error(%d)\n", __func__, crc_retry);
+				bes_err("%s sdio read crc error(%d)\n", __func__, crc_retry);
 			}
 		} while (crc_retry <= 10);
 		if (self->retune_protected == true) {
@@ -872,7 +873,7 @@ static void sdio_rx_work(struct work_struct *work)
 		}
 		bes2600_sdio_unlock(self);
 		if (ret) {
-			bes2600_err(BES2600_DBG_SDIO, "%s,%d error=%d\n", __func__, __LINE__, ret);
+			bes_err("%s,%d error=%d\n", __func__, __LINE__, ret);
 			sdio_work_debug(self);
 			goto failed;
 		}
@@ -881,13 +882,13 @@ static void sdio_rx_work(struct work_struct *work)
 		self->last_rx_data_timestamp = jiffies;
 
 		if ((ret = bes2600_sdio_packets_check(ctrl_reg, buf))) {
-			bes2600_err(BES2600_DBG_SDIO, "%s,%d error=%d\n", __func__, __LINE__, ret);
+			bes_err("%s,%d error=%d\n", __func__, __LINE__, ret);
 			sdio_work_debug(self);
 			goto failed;
 		}
 
 		if ((ret = bes2600_sdio_extract_packets(self, ctrl_reg, buf))) {
-			bes2600_err(BES2600_DBG_SDIO, "%s,%d error=%d\n", __func__, __LINE__, ret);
+			bes_err("%s,%d error=%d\n", __func__, __LINE__, ret);
 			goto failed;
 		}
 
@@ -896,7 +897,7 @@ static void sdio_rx_work(struct work_struct *work)
 		if (likely(self->irq_handler)) {
 			self->irq_handler(self->irq_priv);
 		} else {
-			bes2600_err(BES2600_DBG_SDIO, "%s,%d\n", __func__, __LINE__);
+			bes_err("%s,%d\n", __func__, __LINE__);
 			goto failed;
 		}
 
@@ -913,7 +914,7 @@ failed:
 
 static void sdio_scan_work(struct work_struct *work)
 {
-	bes2600_warn(BES2600_DBG_SDIO, "%s: this function does nothing\n", __FUNCTION__);
+	bes_warn("%s: this function does nothing\n", __FUNCTION__);
 }
 
 static void *bes2600_sdio_pipe_read(struct sbus_priv *self)
@@ -976,7 +977,7 @@ static int bes_sdio_memcpy_to_io_helper(struct sdio_func *func, unsigned origin_
 	if (size && func->card->cccr.multi_block) {
 
 		align_blocks = (size + func->cur_blksize - 1) / func->cur_blksize;
-		bes2600_dbg(BES2600_DBG_SDIO, "%s sz=%u blk=%u", __func__, size, align_blocks);
+		bes_devel("%s sz=%u blk=%u", __func__, size, align_blocks);
 		compensate = align_blocks * func->cur_blksize - size;
 #ifdef SDIO_HOST_ADMA_SUPPORT
 		if (compensate) {
@@ -1063,7 +1064,7 @@ static int bes_sdio_memcpy_to_io_helper(struct sdio_func *func, unsigned origin_
 			goto out;
 		}
 	} else {
-		bes2600_err(BES2600_DBG_SDIO, "%s,%d (%u)\n", __func__, __LINE__, size);
+		bes_err("%s,%d (%u)\n", __func__, __LINE__, size);
 		ret = -EINVAL;
 	}
 out:
@@ -1114,12 +1115,12 @@ static void sdio_tx_work(struct work_struct *work)
 				align = 1632;
 			}
 			if (unlikely(blks >= 5)) {
-				bes2600_err(BES2600_DBG_SDIO, "%s,%d skip error-len packet:%u,%d\n", __func__, __LINE__, tx_buffer->len, blks);
+				bes_err("%s,%d skip error-len packet:%u,%d\n", __func__, __LINE__, tx_buffer->len, blks);
 				list_del_init(&tx_buffer->node);
 				kmem_cache_free(self->tx_bufferlistpool, tx_buffer);
 				continue;
 			}
-			bes2600_dbg(BES2600_DBG_SDIO, "%s,%p,%u->%u\n", __func__, tx_buffer->buf, tx_buffer->len, align);
+			bes_devel("%s,%p,%u->%u\n", __func__, tx_buffer->buf, tx_buffer->len, align);
 			if (!cur_blk)
 				cur_blk = blks;
 			else if (cur_blk != blks)
@@ -1168,13 +1169,13 @@ flush_previous:
 					break;
 				} else {
 					crc_retry++;
-					bes2600_err(BES2600_DBG_SDIO, "%s sdio write crc error(%d)\n", __func__, crc_retry);
+					bes_err("%s sdio write crc error(%d)\n", __func__, crc_retry);
 				}
 			} while (crc_retry <= 10);
 			sdio_release_host(self->func);
 			queue_work(self->sdio_wq, &self->rx_work);
 			if (ret) {
-				bes2600_err(BES2600_DBG_SDIO, "%s,%d err=%d,%d,%d\n", __func__, __LINE__, ret, scatters, cur_blk);
+				bes_err("%s,%d err=%d,%d,%d\n", __func__, __LINE__, ret, scatters, cur_blk);
 				sdio_work_debug(self);
 				bes2600_chrdev_wifi_force_close(self->core, false);
 			}
@@ -1276,32 +1277,32 @@ static int bes2600_platform_data_init(struct device *dev)
 
 	np = of_find_compatible_node(NULL, NULL, "bestechnic,bes2600-sdio");
 	if (!np) {
-		bes2600_err(BES2600_DBG_SDIO, "bes2600-sdio device node not found!\n");
+		bes_err("bes2600-sdio device node not found!\n");
 		return -ENXIO;
 	}
 
 	/* Ensure I/Os are pulled low */
 	pdata->reset = devm_fwnode_gpiod_get_index(dev, &np->fwnode, "reset", 0, GPIOD_OUT_LOW, "bes2600_wlan_reset");
 	if (IS_ERR(pdata->reset)) {
-		bes2600_err(BES2600_DBG_SDIO, "can't request reset_gpio (%ld)\n", PTR_ERR(pdata->reset));
+		bes_err("can't request reset_gpio (%ld)\n", PTR_ERR(pdata->reset));
 		pdata->reset = NULL;
  	}
 
 	pdata->powerup = devm_fwnode_gpiod_get_index(dev, &np->fwnode, "powerup", 0, GPIOD_OUT_LOW, "bes2600_wlan_powerup");
 	if (IS_ERR(pdata->powerup)) {
-		bes2600_err(BES2600_DBG_SDIO, "can't request powerup_gpio (%ld)\n", PTR_ERR(pdata->powerup));
+		bes_err("can't request powerup_gpio (%ld)\n", PTR_ERR(pdata->powerup));
 		pdata->powerup = NULL;
  	}
 
 	pdata->wakeup = devm_fwnode_gpiod_get_index(dev, &np->fwnode, "wakeup", 0, GPIOD_OUT_LOW, "bes2600_wakeup");
 	if (IS_ERR(pdata->wakeup)) {
-		bes2600_err(BES2600_DBG_SDIO, "can't request wakeup_gpio (%ld)\n", PTR_ERR(pdata->wakeup));
+		bes_err("can't request wakeup_gpio (%ld)\n", PTR_ERR(pdata->wakeup));
 		pdata->wakeup = NULL;
  	}
 
 	pdata->host_wakeup = devm_fwnode_gpiod_get_index(dev, &np->fwnode, "host-wakeup", 0, GPIOD_IN, "bes2600_host_irq");
 	if (IS_ERR(pdata->host_wakeup)) {
-		bes2600_err(BES2600_DBG_SDIO, "can't request host_wake_gpio (%ld)\n", PTR_ERR(pdata->host_wakeup));
+		bes_err("can't request host_wake_gpio (%ld)\n", PTR_ERR(pdata->host_wakeup));
 		pdata->host_wakeup = NULL;
  	}
 
@@ -1314,7 +1315,7 @@ static int bes2600_sdio_reset(struct sbus_priv *self)
 {
 	const struct bes2600_platform_data_sdio *pdata = bes2600_get_platform_data();
 
-	bes2600_info(BES2600_DBG_SDIO, "%s\n", __func__);
+	bes_devel("%s\n", __func__);
 
 	gpiod_direction_output(pdata->reset, GPIOD_OUT_HIGH);
 	mdelay(50);
@@ -1333,7 +1334,8 @@ static int bes2600_sdio_readb_safe(struct sdio_func *func, unsigned int addr)
 		val = sdio_readb(func, addr, &ret);
 	} while((ret < 0) && ++retry < 30);
 
-	bes2600_err_with_cond(ret, BES2600_DBG_SDIO, "%s failed, ret:%d\n", __func__, ret);
+	if (ret)
+		bes_err("%s failed, ret:%d\n", __func__, ret);
 
 	return (ret < 0) ? ret : val;
 }
@@ -1347,7 +1349,8 @@ static int bes2600_sdio_writeb_safe(struct sdio_func *func, unsigned int addr, u
 		sdio_writeb(func, val, addr, &ret);
 	} while((ret < 0) && ++retry < 30);
 
-	bes2600_err_with_cond(ret, BES2600_DBG_SDIO, "%s failed, ret:%d\n", __func__, ret);
+	if (ret)
+		bes_err("%s failed, ret:%d\n", __func__, ret);
 
 	return ret;
 }
@@ -1357,14 +1360,13 @@ static void bes2600_gpio_wakeup_mcu(struct sbus_priv *self, int flag)
 	bool gpio_wakeup = false;
 	const struct bes2600_platform_data_sdio *pdata = bes2600_get_platform_data();
 
-	bes2600_dbg(BES2600_DBG_SDIO, "%s with %d\n", __func__, flag);
+	bes_devel("%s with %d\n", __func__, flag);
 
 	mutex_lock(&self->io_mutex);
 
 	/* error check */
 	if((self->gpio_wakup_flags & BIT(flag)) != 0) {
-		bes2600_err(BES2600_DBG_SDIO,
-			"repeat set gpio_wake_flag, sub_sys:%d", flag);
+		bes_err(			"repeat set gpio_wake_flag, sub_sys:%d", flag);
 		mutex_unlock(&self->io_mutex);
 		return;
 	}
@@ -1374,7 +1376,7 @@ static void bes2600_gpio_wakeup_mcu(struct sbus_priv *self, int flag)
 
 	/* do wakeup mcu operation */
 	if(gpio_wakeup) {
-		bes2600_dbg(BES2600_DBG_SDIO, "pull high gpio by flag:%d\n", flag);
+		bes_devel("pull high gpio by flag:%d\n", flag);
 		gpiod_direction_output(pdata->wakeup, GPIOD_OUT_HIGH);
 		msleep(10);
 	}
@@ -1390,14 +1392,13 @@ static void bes2600_gpio_allow_mcu_sleep(struct sbus_priv *self, int flag)
 	bool gpio_sleep = false;
 	const struct bes2600_platform_data_sdio *pdata = bes2600_get_platform_data();
 
-	bes2600_dbg(BES2600_DBG_SDIO, "%s with %d\n", __func__, flag);
+	bes_devel("%s with %d\n", __func__, flag);
 
 	mutex_lock(&self->io_mutex);
 
 	/* error check */
 	if((self->gpio_wakup_flags & BIT(flag)) == 0) {
-		bes2600_err(BES2600_DBG_SDIO,
-			"repeat clear gpio_wake_flag, sub_sys:%d", flag);
+		bes_err(			"repeat clear gpio_wake_flag, sub_sys:%d", flag);
 		mutex_unlock(&self->io_mutex);
 		return;
 	}
@@ -1410,7 +1411,7 @@ static void bes2600_gpio_allow_mcu_sleep(struct sbus_priv *self, int flag)
 
 	/* do wakeup mcu operation */
 	if(gpio_sleep) {
-		bes2600_dbg(BES2600_DBG_SDIO, "pull low gpio by flag:%d\n", flag);
+		bes_devel("pull low gpio by flag:%d\n", flag);
 		gpiod_direction_output(pdata->wakeup, GPIOD_OUT_LOW);
 	}
 
@@ -1469,7 +1470,7 @@ static int bes2600_sdio_active(struct sbus_priv *self, int sub_system)
 		sdio_claim_host(self->func);
 		ret = bes2600_sdio_readb_safe(self->func, BES_SLAVE_STATUS_REG_ID);
 		sdio_release_host(self->func);
-		bes2600_dbg(BES2600_DBG_SDIO, "active wait mcu ready cnt:%d, reg:%d\n", cnt++, ret);
+		bes_devel("active wait mcu ready cnt:%d, reg:%d\n", cnt++, ret);
 		if(ret < 0) {
 			goto err;
 		}
@@ -1484,7 +1485,7 @@ static int bes2600_sdio_active(struct sbus_priv *self, int sub_system)
 		ret = bes2600_sdio_writeb_safe(self->func, BES_HOST_INT_REG_ID + 1, tmp_val);
 		if(ret < 0) {
 			sdio_release_host(self->func);
-			bes2600_err(BES2600_DBG_SDIO, "active write 1st seg failed\n");
+			bes_err("active write 1st seg failed\n");
 			goto err;
 		}
 
@@ -1493,7 +1494,7 @@ static int bes2600_sdio_active(struct sbus_priv *self, int sub_system)
 		ret = bes2600_sdio_writeb_safe(self->func, BES_HOST_INT_REG_ID, tmp_val);
 		if(ret < 0) {
 			sdio_release_host(self->func);
-			bes2600_err(BES2600_DBG_SDIO, "active write 2nd seg failed\n");
+			bes_err("active write 2nd seg failed\n");
 			goto err;
 		}
 
@@ -1508,14 +1509,14 @@ static int bes2600_sdio_active(struct sbus_priv *self, int sub_system)
 		ret = bes2600_sdio_readb_safe(self->func, BES_SLAVE_STATUS_REG_ID);
 		sdio_release_host(self->func);
 		if(ret < 0) {
-			bes2600_err(BES2600_DBG_SDIO, "active read response failed\n");
+			bes_err("active read response failed\n");
 			goto err;
 		}
-		bes2600_dbg(BES2600_DBG_SDIO, "active resp cnt:%d, reg:%d, sub_sys:%d\n", retries, ret, sub_system);
+		bes_devel("active resp cnt:%d, reg:%d, sub_sys:%d\n", retries, ret, sub_system);
 	} while ((cfm != 0) && (ret & cfm) == 0 && ++retries <= 200);	// check if cfm bit is set
 
 	if (retries > 200) {
-		bes2600_err(BES2600_DBG_SDIO, "bes2600_sdio_active failed, subsys:%d\n", sub_system);
+		bes_err("bes2600_sdio_active failed, subsys:%d\n", sub_system);
 		/* open wifi failed, restore fw_started flag */
 		if(sub_system == SUBSYSTEM_WIFI) {
 			self->fw_started = false;
@@ -1636,7 +1637,7 @@ static int bes2600_sdio_deactive(struct sbus_priv *self, int sub_system)
 			sdio_claim_host(self->func);
 			ret = bes2600_sdio_readb_safe(self->func, BES_SLAVE_STATUS_REG_ID);
 			sdio_release_host(self->func);
-			bes2600_dbg(BES2600_DBG_SDIO, "deactive wait mcu ready cnt:%d, reg:%d\n", cnt++, ret);
+			bes_devel("deactive wait mcu ready cnt:%d, reg:%d\n", cnt++, ret);
 
 			if(ret < 0) {
 				goto err;
@@ -1652,7 +1653,7 @@ static int bes2600_sdio_deactive(struct sbus_priv *self, int sub_system)
 			ret = bes2600_sdio_writeb_safe(self->func, BES_HOST_INT_REG_ID + 1, tmp_val);
 			if(ret < 0) {
 				sdio_release_host(self->func);
-				bes2600_err(BES2600_DBG_SDIO, "deactive write 1st seg failed\n");
+				bes_err("deactive write 1st seg failed\n");
 				goto err;
 			}
 
@@ -1661,7 +1662,7 @@ static int bes2600_sdio_deactive(struct sbus_priv *self, int sub_system)
 			ret = bes2600_sdio_writeb_safe(self->func, BES_HOST_INT_REG_ID, tmp_val);
 			if(ret < 0) {
 				sdio_release_host(self->func);
-				bes2600_err(BES2600_DBG_SDIO, "deactive write 2nd seg failed\n");
+				bes_err("deactive write 2nd seg failed\n");
 				goto err;
 			}
 
@@ -1676,7 +1677,7 @@ static int bes2600_sdio_deactive(struct sbus_priv *self, int sub_system)
 			ret = bes2600_sdio_readb_safe(self->func, BES_SLAVE_STATUS_REG_ID);
 			sdio_release_host(self->func);
 			if(ret < 0) {
-				bes2600_err(BES2600_DBG_SDIO, "deactive read response failed\n");
+				bes_err("deactive read response failed\n");
 				if (sub_system == SUBSYSTEM_MCU) {
 					/* cmd52 may return error when 2600 is sleeping */
 					ret = 0;
@@ -1685,7 +1686,7 @@ static int bes2600_sdio_deactive(struct sbus_priv *self, int sub_system)
 					goto err;
 				}
 			}
-			bes2600_dbg(BES2600_DBG_SDIO, "deactive resp cnt:%d, reg:%d, sub_sys:%d\n", retries, ret, sub_system);
+			bes_devel("deactive resp cnt:%d, reg:%d, sub_sys:%d\n", retries, ret, sub_system);
 		} while((cfm != 0) && (ret & cfm) != 0 && ++retries < 200);
 
 		/* set fw_started flag to false */
@@ -1813,7 +1814,7 @@ static int bes2600_sdio_probe(struct sdio_func *func,
 	struct sbus_priv *self;
 	int status;
 
-	bes2600_info(BES2600_DBG_SDIO, "Probe called:%p,%d\n", func, func->num);
+	bes_devel("Probe called:%p,%d\n", func, func->num);
 	if (func->num > 1)
 		return 0;
 
@@ -1822,7 +1823,7 @@ static int bes2600_sdio_probe(struct sdio_func *func,
 
 	self = kzalloc(sizeof(*self), GFP_KERNEL);
 	if (!self) {
-		bes2600_dbg(BES2600_DBG_SDIO, "Can't allocate SDIO sbus_priv.");
+		bes_devel("Can't allocate SDIO sbus_priv.");
 		return -ENOMEM;
 	}
 	spin_lock_init(&self->lock);
@@ -1844,7 +1845,7 @@ static int bes2600_sdio_probe(struct sdio_func *func,
 #ifndef SDIO_HOST_ADMA_SUPPORT
 	if ((MAX_SDIO_TRANSFER_LEN < 1632 * BES_SDIO_RX_MULTIPLE_NUM) ||
 			(MAX_SDIO_TRANSFER_LEN < 1632 * BES_SDIO_TX_MULTIPLE_NUM)) {
-		bes2600_err(BES2600_DBG_SDIO, "gathered buffer is too small.\n");
+		bes_err("gathered buffer is too small.\n");
 		return -EINVAL;
 	}
 	self->single_gathered_buffer = (u8 *)__get_dma_pages(GFP_KERNEL, get_order(MAX_SDIO_TRANSFER_LEN));
@@ -1863,12 +1864,12 @@ static int bes2600_sdio_probe(struct sdio_func *func,
 
 	bes2600_reg_set_object(&bes2600_sdio_sbus_ops, self);
 	status = bes2600_load_firmware(&bes2600_sdio_sbus_ops, self);
-	bes2600_info_with_cond((status > 0), BES2600_DBG_SDIO,
-			"interrupt init process beacuse device be closed.\n");
-	if(status > 0)	// for wifi closed case
+	if(status > 0) {	// for wifi closed case
+		bes_devel("interrupt init process beacuse device be closed.\n");
 		goto out;
-	else if(status < 0)	// for download fail case
+	} else if(status < 0) {	// for download fail case
 		goto err;
+	}
 
 	status = bes2600_register_net_dev(self);
 	if (status) {
@@ -1881,7 +1882,7 @@ out:
 	return 0;
 
 err:
-	bes2600_err(BES2600_DBG_SDIO, "%s failed, func:%d\n", __func__, func->num);
+	bes_err("%s failed, func:%d\n", __func__, func->num);
 	func->card->host->caps &= ~MMC_CAP_NONREMOVABLE;
 	sdio_claim_host(func);
 	sdio_disable_func(func);
@@ -1955,7 +1956,7 @@ static void bes2600_sdio_remove(struct sdio_func *func)
 	struct sbus_priv *self = sdio_get_drvdata(func);
 
 	func->card->host->caps &= ~MMC_CAP_NONREMOVABLE;
-	bes2600_info(BES2600_DBG_SDIO, "%s called:%p,%d\n", __func__, func, func->num);
+	bes_devel("%s called:%p,%d\n", __func__, func, func->num);
 
 	if (self) {
 #ifndef CONFIG_BES2600_USE_GPIO_IRQ
@@ -1989,7 +1990,7 @@ static irqreturn_t bes2600_wlan_bt_hostwake_thread(int irq, void *dev_id)
 {
 	struct bes2600_platform_data_sdio *pdata = bes2600_get_platform_data();
 
-	bes2600_info(BES2600_DBG_SDIO, "bes2600_wlan_hostwake:%d\n", dev_id == (void *)pdata);
+	bes_devel("bes2600_wlan_hostwake:%d\n", dev_id == (void *)pdata);
 
 	if (dev_id == (void *)pdata) {
 		bes2600_chrdev_wakeup_by_event_set(WAKEUP_EVENT_SETTING);
@@ -2007,10 +2008,10 @@ static int bes2600_wlan_bt_hostwake_register(void)
 	struct bes2600_platform_data_sdio *pdata = bes2600_get_platform_data();
 
 	// flipping internal struct registers considered as nothing
-	bes2600_warn(BES2600_DBG_SDIO, "%s: this function does nothing\n", __FUNCTION__);
+	bes_warn("%s: this function does nothing\n", __FUNCTION__);
 
 	if (pdata->wlan_bt_hostwake_registered == true) {
-		bes2600_err(BES2600_DBG_SDIO, "wlan hostwake register repeatedly.\n");
+		bes_err("wlan hostwake register repeatedly.\n");
 		return -1;
 	}
 
@@ -2026,7 +2027,7 @@ static void bes2600_wlan_bt_hostwake_unregister(void)
 	struct bes2600_platform_data_sdio *pdata = bes2600_get_platform_data();
 
 	// flipping internal struct registers considered as nothing
-	bes2600_warn(BES2600_DBG_SDIO, "%s: this function does nothing\n", __FUNCTION__);
+	bes_warn("%s: this function does nothing\n", __FUNCTION__);
 
 	if (pdata->wlan_bt_hostwake_registered == false)
 		return;
@@ -2055,7 +2056,7 @@ static int bes2600_gpio_wakeup_ap_config(struct sbus_priv *self)
 	if (wakeup_cfg & BES_AP_WAKEUP_CFG_VALID)
 		wakeup_cfg |= (BES_AP_WAKEUP_TYPE_GPIO << BES_AP_WAKEUP_TYPE_SHIFT);
 
-	bes2600_info(BES2600_DBG_SDIO, "%s config:%x\n", __func__, wakeup_cfg);
+	bes_devel("%s config:%x\n", __func__, wakeup_cfg);
 
 	sdio_claim_host(self->func);
 	sdio_writeb(self->func, wakeup_cfg, BES_AP_WAKEUP_REG_ID, &ret);
@@ -2067,7 +2068,7 @@ static int bes2600_gpio_wakeup_ap_config(struct sbus_priv *self)
 	}
 	sdio_release_host(self->func);
 	if (ret) {
-		bes2600_err(BES2600_DBG_SDIO, "%s failed:%d\n", __func__, ret);
+		bes_err("%s failed:%d\n", __func__, ret);
 		free_irq(irq, &bes_sdio_plat_data);
 		return ret;
 	}
@@ -2081,7 +2082,7 @@ static int bes2600_sdio_prepare(struct device *dev)
 	struct sdio_func *func = dev_to_sdio_func(dev);
 	struct sbus_priv *self = sdio_get_drvdata(func);
 
-	bes2600_info(BES2600_DBG_SDIO, "%s (%p,%d)enter\n", __func__, func, func->num);
+	bes_devel("%s (%p,%d)enter\n", __func__, func, func->num);
 
 	if (func->num > 1)
 		return 0;
@@ -2098,7 +2099,7 @@ static int bes2600_sdio_suspend(struct device *dev)
 	struct sdio_func *func = dev_to_sdio_func(dev);
 	struct sbus_priv *self = sdio_get_drvdata(func);
 
-	bes2600_info(BES2600_DBG_SDIO, "%s (%p,%d)enter\n", __func__, func, func->num);
+	bes_devel("%s (%p,%d)enter\n", __func__, func, func->num);
 	if (func->num > 1)
 		return 0;
 
@@ -2110,13 +2111,13 @@ static int bes2600_sdio_suspend(struct device *dev)
 	/* Notify SDIO that BES2600 will remain powered during suspend */
 	ret = sdio_set_host_pm_flags(func, MMC_PM_KEEP_POWER);
 	if (ret) {
-		bes2600_err(BES2600_DBG_PM, "Error setting SDIO pm flags: %i\n", ret);
+		bes_err("Error setting SDIO pm flags: %i\n", ret);
 		return ret;
 	}
 
 	if (bes2600_chrdev_is_bt_opened() == true) {
 		if ((ret = bes2600_sdio_deactive(self, SUBSYSTEM_BT_LP))) {
-			bes2600_err(BES2600_DBG_PM, "bt sleep in suspend failed:%d.\n", ret);
+			bes_err("bt sleep in suspend failed:%d.\n", ret);
 			return ret;
 		}
 	}
@@ -2133,14 +2134,14 @@ static int bes2600_sdio_suspend_noirq(struct device *dev)
 	struct sdio_func *func = dev_to_sdio_func(dev);
 	struct sbus_priv *self = sdio_get_drvdata(func);
 
-	bes2600_info(BES2600_DBG_SDIO, "%s (%p,%d)enter\n", __func__, func, func->num);
+	bes_devel("%s (%p,%d)enter\n", __func__, func, func->num);
 
 	if (func->num > 1)
 		return 0;
 
 	if(self->core &&
 	   (work_pending(&self->rx_work) || atomic_read(&self->core->bh_rx))) {
-		bes2600_info(BES2600_DBG_SDIO, "%s: Suspend interrupted.\n", __func__);
+		bes_devel("%s: Suspend interrupted.\n", __func__);
 		return -EAGAIN;
 	}
 
@@ -2148,7 +2149,7 @@ static int bes2600_sdio_suspend_noirq(struct device *dev)
 		bes2600_sdio_sbus_ops.gpio_sleep(self, GPIO_WAKE_FLAG_HOST_SUSPEND);
 
 	if (self->retune_protected == true)
-		bes2600_warn(BES2600_DBG_SDIO, "retune is closed while ap sleep.\n");
+		bes_warn("retune is closed while ap sleep.\n");
 
 	return 0;
 }
@@ -2158,7 +2159,7 @@ static int bes2600_sdio_resume_noirq(struct device *dev)
 	struct sdio_func *func = dev_to_sdio_func(dev);
 	struct sbus_priv *self = sdio_get_drvdata(func);
 
-	bes2600_info(BES2600_DBG_SDIO, "%s (%p,%d)enter\n", __func__, func, func->num);
+	bes_devel("%s (%p,%d)enter\n", __func__, func, func->num);
 
 	if (func->num > 1)
 		return 0;
@@ -2173,7 +2174,7 @@ static int bes2600_sdio_resume(struct device *dev)
 {
 	struct sdio_func *func = dev_to_sdio_func(dev);
 
-	bes2600_info(BES2600_DBG_SDIO, "%s (%p,%d)enter\n", __func__, func, func->num);
+	bes_devel("%s (%p,%d)enter\n", __func__, func, func->num);
 
 	if (func->num > 1)
 		return 0;
@@ -2190,7 +2191,7 @@ static void bes2600_sdio_complete(struct device *dev)
 	struct sdio_func *func = dev_to_sdio_func(dev);
 	struct sbus_priv *self = sdio_get_drvdata(func);
 
-	bes2600_info(BES2600_DBG_SDIO, "%s (%p,%d)enter\n", __func__, func, func->num);
+	bes_devel("%s (%p,%d)enter\n", __func__, func, func->num);
 
 	if (func->num > 1)
 		return;
@@ -2227,7 +2228,7 @@ static int __init bes2600_sdio_init(void)
 {
 	const struct bes2600_platform_data_sdio *pdata = NULL;
 
-	bes2600_info(BES2600_DBG_SDIO, "------Driver: bes2600.ko version :%s\n", BES2600_DRV_VERSION);
+	bes_devel("------Driver: bes2600.ko version :%s\n", BES2600_DRV_VERSION);
 
 	bes2600_chrdev_update_signal_mode();
 	int ret = bes2600_chrdev_init(&bes2600_sdio_sbus_ops);
@@ -2242,7 +2243,7 @@ static int __init bes2600_sdio_init(void)
 
 	pdata = bes2600_get_platform_data();
 	if (!pdata->inited) {
-		bes2600_err(BES2600_DBG_SDIO, "pdata->inited = %d, platform data must be inited at this point\n", pdata->inited);
+		bes_err("pdata->inited = %d, platform data must be inited at this point\n", pdata->inited);
 		sdio_unregister_driver(&sdio_driver);
 		bes2600_chrdev_free();
 		// probably does nothing, but still
@@ -2259,7 +2260,7 @@ static void __exit bes2600_sdio_exit(void)
 {
 	const struct bes2600_platform_data_sdio *pdata = bes2600_get_platform_data();
 	struct sbus_priv *priv =  bes2600_chrdev_get_sbus_priv_data();
-	bes2600_info(BES2600_DBG_SDIO, "%s called\n", __func__);
+	bes_devel("%s called\n", __func__);
 
 	bes2600_unregister_net_dev(priv);
 	sdio_unregister_driver(&sdio_driver);

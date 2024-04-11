@@ -15,6 +15,7 @@
 #include "bes_chardev.h"
 #include <linux/string.h>
 #include "bes2600_factory.h"
+#include "bes_log.h"
 
 // fw blob names
 #define BES2600_LOAD_BOOT_NAME      "bes2600/best2002_fw_boot_sdio.bin"
@@ -35,7 +36,7 @@ struct platform_fw_t {
 static void bes_fw_irq_handler(void *priv)
 {
 	struct platform_fw_t *fw_data = (struct platform_fw_t *)priv;
-	bes2600_dbg(BES2600_DBG_DOWNLOAD, "%s\n", __func__);
+	bes_devel("%s\n", __func__);
 	complete(&fw_data->completion_data);
 }
 
@@ -52,7 +53,7 @@ static int bes_slave_rx_ready(struct platform_fw_t *fw_data, u8* buf_cnt,
 			mdelay(50);
 			continue;
 		} else if (ret) {
-			bes2600_err(BES2600_DBG_DOWNLOAD, "%s,%d err=%d\n", __func__, __LINE__, ret);
+			bes_err("%s,%d err=%d\n", __func__, __LINE__, ret);
 		} else {
 			ret = bes2600_reg_read_16(0x109, buf_len);
 		}
@@ -68,7 +69,7 @@ static int bes_slave_tx_ready(struct platform_fw_t *fw_data, u16 *tx_len, int ti
 {
 	int ret, retry = 0;
 
-	bes2600_dbg(BES2600_DBG_DOWNLOAD, "%s now=%lu\n", __func__, jiffies);
+	bes_devel("%s now=%lu\n", __func__, jiffies);
 
 	msleep(2);
 
@@ -82,14 +83,14 @@ test_read_tx:
 			if (!ret && (*tx_len))
 				break;
 			else
-				bes2600_err(BES2600_DBG_DOWNLOAD,"%s,%d ret=%d tx_len=%x retry=%d\n",
+				bes_err("%s,%d ret=%d tx_len=%x retry=%d\n",
 						__func__, __LINE__, ret, *tx_len, retry);
 			retry++;
 		} while(retry <= 5);
 		reinit_completion(&fw_data->completion_data);
 
 	} else if(!ret) {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "%s now=%lu delta=%d\n", __func__, jiffies, timeout);
+		bes_err("%s now=%lu delta=%d\n", __func__, jiffies, timeout);
 #ifndef MISSED_INTERRUPT_WORKAROUND
 		ret = -110;
 #else
@@ -111,14 +112,14 @@ int bes_host_slave_sync(struct bes2600_common *hw_priv)
 
 	ret = bes2600_reg_read(BES_HOST_INT_REG_ID, &val, 1);
 	if (ret) {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "%s,%d err=%d\n", __func__, __LINE__, ret);
+		bes_err("%s,%d err=%d\n", __func__, __LINE__, ret);
 		return ret;
 	}
 
 	val |= BES_HOST_INT;
 	ret = bes2600_reg_write(BES_HOST_INT_REG_ID, &val, 1);
 	if (ret) {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "%s,%d err=%d\n", __func__, __LINE__, ret);
+		bes_err("%s,%d err=%d\n", __func__, __LINE__, ret);
 	}
 	return ret;
 }
@@ -145,9 +146,9 @@ static int bes_firmware_download_write_reg(struct platform_fw_t *fw_data, u32 ad
 
 	ret = bes_slave_rx_ready(fw_data, &buf_cnt, &tx_size, HZ);
 	if (!ret) {
-		bes2600_dbg(BES2600_DBG_DOWNLOAD, "sdio slave rx buf cnt:%d,buf len max:%d\n", buf_cnt, tx_size);
+		bes_devel("sdio slave rx buf cnt:%d,buf len max:%d\n", buf_cnt, tx_size);
 	} else {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "wait bes sdio slave rx ready tiemout:%d\n", ret);
+		bes_err("wait bes sdio slave rx ready tiemout:%d\n", ret);
 		return ret;
 	}
 
@@ -165,21 +166,21 @@ static int bes_firmware_download_write_reg(struct platform_fw_t *fw_data, u32 ad
 	length = length > 512 ? length : 512;
 	ret = bes2600_data_write(short_buf, length);
 	if (ret) {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "tx download firmware info err:%d\n", ret);
+		bes_err("tx download firmware info err:%d\n", ret);
 		goto err;
 	}
 
 	ret = bes_slave_tx_ready(fw_data, &rx_size, HZ);
 	if (!ret) {
-		bes2600_dbg(BES2600_DBG_DOWNLOAD, "sdio slave tx ready %d bytes\n", rx_size);
+		bes_devel("sdio slave tx ready %d bytes\n", rx_size);
 	} else {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "wait slave process failed:%d\n", ret);
+		bes_err("wait slave process failed:%d\n", ret);
 		goto err;
 	}
 
 	ret = bes2600_data_read(short_buf, rx_size);
 	if (ret) {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "rx download firmware info rsp err:%d\n", ret);
+		bes_err("rx download firmware info rsp err:%d\n", ret);
 		goto err;
 	}
 
@@ -198,20 +199,20 @@ static int bes_firmware_download_write_reg(struct platform_fw_t *fw_data, u32 ad
 	length = length > 512 ? length : 512;
 	ret = bes2600_data_write(short_buf, length);
 	if (ret) {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "tx download fw data err:%d\n", ret);
+		bes_err("tx download fw data err:%d\n", ret);
 		goto err;
 	}
 	ret = bes_slave_tx_ready(fw_data, &rx_size, HZ);
 	if (!ret) {
-		bes2600_dbg(BES2600_DBG_DOWNLOAD, "bes_slave ready tx %d bytes\n", rx_size);
+		bes_devel("bes_slave ready tx %d bytes\n", rx_size);
 	} else {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "wait slave process download fw data err:%d\n", ret);
+		bes_err("wait slave process download fw data err:%d\n", ret);
 		goto err;
 	}
 
 	ret = bes2600_data_read(short_buf, rx_size);
 	if (ret) {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "rx tx download fw data rsp err:%d\n", ret);
+		bes_err("rx tx download fw data rsp err:%d\n", ret);
 		goto err;
 	}
 
@@ -254,9 +255,9 @@ retry:
 
 	ret = bes_slave_rx_ready(fw_data, &buf_cnt, &tx_size, HZ);
 	if (!ret) {
-		bes2600_dbg(BES2600_DBG_DOWNLOAD, "sdio slave rx buf cnt:%d,buf len max:%d\n", buf_cnt, tx_size);
+		bes_devel("sdio slave rx buf cnt:%d,buf len max:%d\n", buf_cnt, tx_size);
 	} else {
-		bes2600_info(BES2600_DBG_DOWNLOAD, "wait bes sdio slave rx ready tiemout:%d\n", ret);
+		bes_devel("wait bes sdio slave rx ready tiemout:%d\n", ret);
 		return ret;
 	}
 
@@ -274,44 +275,44 @@ retry:
 	length = BES_FW_MSG_TOTAL_LEN(header);
 
 	if (tx_size > length) {
-		bes2600_dbg(BES2600_DBG_DOWNLOAD, "%s", "tx download firmware info\n");
+		bes_devel("%s", "tx download firmware info\n");
 	} else {
-		bes2600_info(BES2600_DBG_DOWNLOAD, "%s:%d bes slave has no enough buffer%d/%d\n", __func__, __LINE__, tx_size, length);
+		bes_devel("%s:%d bes slave has no enough buffer%d/%d\n", __func__, __LINE__, tx_size, length);
 		goto err1;
 	}
 
 	length = length > 512 ? length : 512;
 	ret = bes2600_data_write(short_buf, length);
 	if (ret) {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "tx download firmware info err:%d\n", ret);
+		bes_err("tx download firmware info err:%d\n", ret);
 		goto err1;
 	}
 
 	ret = bes_slave_tx_ready(fw_data, &rx_size, HZ);
 	if (!ret) {
-		bes2600_dbg(BES2600_DBG_DOWNLOAD, "sdio slave tx ready %d bytes\n", rx_size);
+		bes_devel("sdio slave tx ready %d bytes\n", rx_size);
 	} else {
-		bes2600_info(BES2600_DBG_DOWNLOAD, "wait slave process failed:%d\n", ret);
+		bes_devel("wait slave process failed:%d\n", ret);
 		goto err1;
 	}
 
 	ret = bes2600_data_read(short_buf, rx_size);
 	if (ret) {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "rx download firmware info rsp err:%d\n", ret);
+		bes_err("rx download firmware info rsp err:%d\n", ret);
 		goto err1;
 	}
 
 	//check device rx status
 	ret = bes_frame_rsp_check(short_buf, last_frame_num);
 	if (ret) {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "rsp download firmware info err:%d\n", ret);
+		bes_err("rsp download firmware info err:%d\n", ret);
 		goto err1;
 	}
 
 	//download firmware
 	long_buf = kmalloc(1024 * 32, GFP_KERNEL);
 	if (!long_buf) {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "%s:%d fw failed to allocate memory\n",__func__, __LINE__);
+		bes_err("%s:%d fw failed to allocate memory\n",__func__, __LINE__);
 		ret = -ENOMEM;
 		goto err1;
 	}
@@ -323,12 +324,12 @@ retry:
 		if (ret) {
 			goto err2;
 		} else {
-			bes2600_dbg(BES2600_DBG_DOWNLOAD, "bes salve rx ready %d bytes\n", tx_size);
+			bes_devel("bes salve rx ready %d bytes\n", tx_size);
 		}
 
 
 		if ((tx_size < 4) || (tx_size % 4)) {
-			bes2600_err(BES2600_DBG_DOWNLOAD, "%s:%d tx size=%d\n", __func__, __LINE__, tx_size);
+			bes_err("%s:%d tx size=%d\n", __func__, __LINE__, tx_size);
 			ret = -203;
 			goto err2;
 		}
@@ -352,40 +353,40 @@ retry:
 
 		length += (sizeof(struct fw_msg_hdr_t) + sizeof(struct download_fw_t));
 
-		bes2600_dbg(BES2600_DBG_DOWNLOAD, "tx_download_firmware_data:%x %d\n", download_addr.addr, length);
+		bes_devel("tx_download_firmware_data:%x %d\n", download_addr.addr, length);
 
 		ret = bes2600_data_write(long_buf, length > 512 ? length : 512);
 		if (ret) {
-			bes2600_err(BES2600_DBG_DOWNLOAD, "tx download fw data err:%d\n", ret);
+			bes_err("tx download fw data err:%d\n", ret);
 			goto err2;
 		}
 		length -= (sizeof(struct fw_msg_hdr_t) + sizeof(struct download_fw_t));
 
 		ret = bes_slave_tx_ready(fw_data, &rx_size, HZ);
 		if (!ret) {
-			bes2600_dbg(BES2600_DBG_DOWNLOAD, "bes_slave ready tx %d bytes\n", rx_size);
+			bes_devel("bes_slave ready tx %d bytes\n", rx_size);
 		} else {
-			bes2600_err(BES2600_DBG_DOWNLOAD, "wait slave process download fw data err:%d\n", ret);
+			bes_err("wait slave process download fw data err:%d\n", ret);
 			goto err2;
 		}
 
 		ret = bes2600_data_read(short_buf, rx_size);
 		if (ret) {
-			bes2600_err(BES2600_DBG_DOWNLOAD, "rx tx download fw data rsp err:%d\n", ret);
+			bes_err("rx tx download fw data rsp err:%d\n", ret);
 			goto err2;
 		}
 
 		//check device rx status
 		ret = bes_frame_rsp_check(short_buf, last_frame_num);
 		if (ret) {
-			bes2600_err(BES2600_DBG_DOWNLOAD, "rsp tx download fw err:%d\n", ret);
+			bes_err("rsp tx download fw err:%d\n", ret);
 			goto err2;
 		}
 
 		code_length -= length;
 		data_p += length;
 		download_addr.addr += length;
-		bes2600_dbg(BES2600_DBG_DOWNLOAD, "already tx fw size:%x/%x\n", download_addr.addr - fw_info.addr, fw_info.len);
+		bes_devel("already tx fw size:%x/%x\n", download_addr.addr - fw_info.addr, fw_info.len);
 	}
 
 	//Notify Device:The firmware download is complete
@@ -394,7 +395,7 @@ retry:
 	if (ret) {
 		goto err2;
 	} else {
-		bes2600_dbg(BES2600_DBG_DOWNLOAD, "bes salve rx ready %d bytes\n", tx_size);
+		bes_devel("bes salve rx ready %d bytes\n", tx_size);
 	}
 
 	header.type = FRAME_HEADER_DOWNLOAD_END;
@@ -407,33 +408,33 @@ retry:
 	memcpy(short_buf + sizeof(struct fw_msg_hdr_t), (u8 *)&crc32_t.crc32, sizeof(struct fw_crc_t));
 	length = BES_FW_MSG_TOTAL_LEN(header);
 
-	bes2600_dbg(BES2600_DBG_DOWNLOAD, "%s", "tx download firmware complete command\n");
+	bes_devel("%s", "tx download firmware complete command\n");
 
 	length = length > 512 ? length : 512;
 	ret = bes2600_data_write(short_buf, length);
 	if (ret) {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "tx downlod firmware complete command err:%d\n", ret);
+		bes_err("tx downlod firmware complete command err:%d\n", ret);
 		goto err2;
 	}
 
 	ret = bes_slave_tx_ready(fw_data, &rx_size, HZ);
 	if (!ret) {
-		bes2600_dbg(BES2600_DBG_DOWNLOAD, "bes_slave ready tx %d bytes\n", rx_size);
+		bes_devel("bes_slave ready tx %d bytes\n", rx_size);
 	} else {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "wait slave process download fw data err:%d\n", ret);
+		bes_err("wait slave process download fw data err:%d\n", ret);
 		goto err2;
 	}
 
 	ret = bes2600_data_read(short_buf, rx_size);
 	if (ret) {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "receive download firmware complete cmd rsp err:%d\n", ret);
+		bes_err("receive download firmware complete cmd rsp err:%d\n", ret);
 		goto err2;
 	}
 
 	//check device rx status
 	ret = bes_frame_rsp_check(short_buf, last_frame_num);
 	if (ret) {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "rsp download firmware complete err:%d\n", ret);
+		bes_err("rsp download firmware complete err:%d\n", ret);
 		goto err2;
 	}
 err2:
@@ -484,7 +485,7 @@ const struct firmware *fw_bin;
 retry:
 	ret = request_firmware(&fw_bin, fw_name, NULL);
 	if (ret) {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "request firmware err:%d\n", ret);
+		bes_err("request firmware err:%d\n", ret);
 		return ret;
 	}
 
@@ -492,24 +493,24 @@ retry:
 
 	fw_ver_ptr = bes2600_get_firmware_version_info(fw_bin->data, fw_bin->size);
 	if(fw_ver_ptr == NULL)
-		bes2600_err(BES2600_DBG_DOWNLOAD, "------Firmware version get failed\n");
+		bes_err("------Firmware version get failed\n");
 	else
-		bes2600_info(BES2600_DBG_DOWNLOAD, "------Firmware: %s version :%s\n", fw_name ,fw_ver_ptr);
+		bes_devel("------Firmware: %s version :%s\n", fw_name ,fw_ver_ptr);
 
-	bes2600_dbg(BES2600_DBG_DOWNLOAD, "------load addr  :0x%08X\n", fw_info.addr);
-	bes2600_dbg(BES2600_DBG_DOWNLOAD, "------data crc   :0x%08X\n", crc32_t.crc32);
+	bes_devel("------load addr  :0x%08X\n", fw_info.addr);
+	bes_devel("------data crc   :0x%08X\n", crc32_t.crc32);
 
 	code_length = fw_bin->size - CODE_DATA_USELESS_SIZE;
-	bes2600_dbg(BES2600_DBG_DOWNLOAD, "------code size  :%d\n", code_length);
+	bes_devel("------code size  :%d\n", code_length);
 
 	fw_info.len = code_length;
 	data_p = fw_bin->data;
 
 	ret = bes_slave_rx_ready(fw_data, &buf_cnt, &tx_size, HZ);
 	if (!ret) {
-		bes2600_dbg(BES2600_DBG_DOWNLOAD, "sdio slave rx buf cnt:%d,buf len max:%d\n", buf_cnt, tx_size);
+		bes_devel("sdio slave rx buf cnt:%d,buf len max:%d\n", buf_cnt, tx_size);
 	} else {
-		bes2600_info(BES2600_DBG_DOWNLOAD, "wait bes sdio slave rx ready tiemout:%d\n", ret);
+		bes_devel("wait bes sdio slave rx ready tiemout:%d\n", ret);
 		return ret;
 	}
 
@@ -527,28 +528,28 @@ retry:
 	length = BES_FW_MSG_TOTAL_LEN(header);
 
 	//mdelay(5000);
-	bes2600_dbg_dump(BES2600_DBG_DOWNLOAD, "Fw Info:", short_buf, length);
+	print_hex_dump(KERN_DEBUG, "FW info: ", DUMP_PREFIX_NONE, 16, 1, short_buf, length, false);
 
 	if (tx_size > length) {
-		bes2600_dbg(BES2600_DBG_DOWNLOAD, "%s", "tx download firmware info\n");
+		bes_devel("%s", "tx download firmware info\n");
 	} else {
-		bes2600_info(BES2600_DBG_DOWNLOAD, "%s:%d bes slave has no enough buffer%d/%d\n", __func__, __LINE__, tx_size, length);
+		bes_devel("%s:%d bes slave has no enough buffer%d/%d\n", __func__, __LINE__, tx_size, length);
 		goto err1;
 	}
 
 	length = length > 512 ? length : 512;
 	ret = bes2600_data_write(short_buf, length);
 	if (ret) {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "tx download firmware info err:%d\n", ret);
+		bes_err("tx download firmware info err:%d\n", ret);
 		goto err1;
 	}
 
 #if 1
 	ret = bes_slave_tx_ready(fw_data, &rx_size, HZ);
 	if (!ret) {
-		bes2600_dbg(BES2600_DBG_DOWNLOAD, "sdio slave tx ready %d bytes\n", rx_size);
+		bes_devel("sdio slave tx ready %d bytes\n", rx_size);
 	} else {
-		bes2600_info(BES2600_DBG_DOWNLOAD, "wait slave process failed:%d\n", ret);
+		bes_devel("wait slave process failed:%d\n", ret);
 		goto err1;
 	}
 #ifdef BES_SLAVE_TX_DOUBLE_CHECK
@@ -562,21 +563,21 @@ retry:
 
 	ret = bes2600_data_read(short_buf, rx_size);
 	if (ret) {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "rx download firmware info rsp err:%d\n", ret);
+		bes_err("rx download firmware info rsp err:%d\n", ret);
 		goto err1;
 	}
 
 	//check device rx status
 	ret = bes_frame_rsp_check(short_buf, last_frame_num);
 	if (ret) {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "rsp download firmware info err:%d\n", ret);
+		bes_err("rsp download firmware info err:%d\n", ret);
 		goto err1;
 	}
 
 	//download firmware
 	long_buf = kmalloc(1024 * 32, GFP_KERNEL);
 	if (!long_buf) {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "%s:%d fw failed to allocate memory\n",__func__, __LINE__);
+		bes_err("%s:%d fw failed to allocate memory\n",__func__, __LINE__);
 		ret = -ENOMEM;
 		goto err1;
 	}
@@ -585,7 +586,7 @@ retry:
 #ifdef DATA_DUMP_OBSERVE
 	observe_file = filp_open("/lib/firmware/bes2002_fw_write.bin", O_CREAT | O_RDWR, 0);
 	if (IS_ERR(observe_file)) {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "create data_dump file err:%ld\n", IS_ERR(observe_file));
+		bes_err("create data_dump file err:%ld\n", IS_ERR(observe_file));
 		observe_file = NULL;
 	}
 #endif
@@ -597,7 +598,7 @@ retry:
 		if (ret) {
 			goto err2;
 		} else {
-			bes2600_dbg(BES2600_DBG_DOWNLOAD, "bes salve rx ready %d bytes\n", tx_size);
+			bes_devel("bes salve rx ready %d bytes\n", tx_size);
 		}
 #endif
 #ifdef BES_SLAVE_RX_DOUBLE_CHECK
@@ -605,7 +606,7 @@ retry:
 #endif
 
 		if ((tx_size < 4) || (tx_size % 4)) {
-			bes2600_err(BES2600_DBG_DOWNLOAD, "%s:%d tx size=%d\n", __func__, __LINE__, tx_size);
+			bes_err("%s:%d tx size=%d\n", __func__, __LINE__, tx_size);
 			ret = -203;
 			goto err2;
 		}
@@ -637,7 +638,7 @@ retry:
 		length += (sizeof(struct fw_msg_hdr_t) + sizeof(struct download_fw_t));
 
 		//mdelay(5000);
-		bes2600_dbg(BES2600_DBG_DOWNLOAD, "tx_download_firmware_data:%x %d\n", download_addr.addr, length);
+		bes_devel("tx_download_firmware_data:%x %d\n", download_addr.addr, length);
 
 #ifdef DATA_DUMP_OBSERVE
 		if (observe_file) {
@@ -652,7 +653,7 @@ retry:
 
 		ret = bes2600_data_write(long_buf, length > 512 ? length : 512);
 		if (ret) {
-			bes2600_err(BES2600_DBG_DOWNLOAD, "tx download fw data err:%d\n", ret);
+			bes_err("tx download fw data err:%d\n", ret);
 			goto err2;
 		}
 		length -= (sizeof(struct fw_msg_hdr_t) + sizeof(struct download_fw_t));
@@ -660,9 +661,9 @@ retry:
 #if 1
 		ret = bes_slave_tx_ready(fw_data, &rx_size, HZ);
 		if (!ret) {
-			bes2600_dbg(BES2600_DBG_DOWNLOAD, "bes_slave ready tx %d bytes\n", rx_size);
+			bes_devel("bes_slave ready tx %d bytes\n", rx_size);
 		} else {
-			bes2600_err(BES2600_DBG_DOWNLOAD, "wait slave process download fw data err:%d\n", ret);
+			bes_err("wait slave process download fw data err:%d\n", ret);
 			goto err2;
 		}
 #ifdef BES_SLAVE_TX_DOUBLE_CHECK
@@ -676,21 +677,21 @@ retry:
 
 		ret = bes2600_data_read(short_buf, rx_size);
 		if (ret) {
-			bes2600_err(BES2600_DBG_DOWNLOAD, "rx tx download fw data rsp err:%d\n", ret);
+			bes_err("rx tx download fw data rsp err:%d\n", ret);
 			goto err2;
 		}
 
 		//check device rx status
 		ret = bes_frame_rsp_check(short_buf, last_frame_num);
 		if (ret) {
-			bes2600_err(BES2600_DBG_DOWNLOAD, "rsp tx download fw err:%d\n", ret);
+			bes_err("rsp tx download fw err:%d\n", ret);
 			goto err2;
 		}
 
 		code_length -= length;
 		data_p += length;
 		download_addr.addr += length;
-		bes2600_dbg(BES2600_DBG_DOWNLOAD, "already tx fw size:%x/%x\n", download_addr.addr - fw_info.addr, fw_info.len);
+		bes_devel("already tx fw size:%x/%x\n", download_addr.addr - fw_info.addr, fw_info.len);
 	}
 
 	//Notify Device:The firmware download is complete
@@ -700,7 +701,7 @@ retry:
 	if (ret) {
 		goto err2;
 	} else {
-		bes2600_dbg(BES2600_DBG_DOWNLOAD, "bes salve rx ready %d bytes\n", tx_size);
+		bes_devel("bes salve rx ready %d bytes\n", tx_size);
 	}
 #endif
 #ifdef BES_SLAVE_RX_DOUBLE_CHECK
@@ -717,21 +718,21 @@ retry:
 	memcpy(short_buf + sizeof(struct fw_msg_hdr_t), (u8 *)&crc32_t.crc32, sizeof(struct fw_crc_t));
 	length = BES_FW_MSG_TOTAL_LEN(header);
 
-	bes2600_dbg(BES2600_DBG_DOWNLOAD, "%s", "tx download firmware complete command\n");
+	bes_devel("%s", "tx download firmware complete command\n");
 
 	length = length > 512 ? length : 512;
 	ret = bes2600_data_write(short_buf, length);
 	if (ret) {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "tx downlod firmware complete command err:%d\n", ret);
+		bes_err("tx downlod firmware complete command err:%d\n", ret);
 		goto err2;
 	}
 
 #if 1
 	ret = bes_slave_tx_ready(fw_data, &rx_size, HZ);
 	if (!ret) {
-		bes2600_dbg(BES2600_DBG_DOWNLOAD, "bes_slave ready tx %d bytes\n", rx_size);
+		bes_devel("bes_slave ready tx %d bytes\n", rx_size);
 	} else {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "wait slave process download fw data err:%d\n", ret);
+		bes_err("wait slave process download fw data err:%d\n", ret);
 		goto err2;
 	}
 #ifdef BES_SLAVE_TX_DOUBLE_CHECK
@@ -741,24 +742,24 @@ retry:
 #else
 	mdelay(100);
 	rx_size = 8;
-	bes2600_info(BES2600_DBG_DOWNLOAD, "enter sdio irqs:%d", enter_sdio_irqs);
+	bes_devel("enter sdio irqs:%d", enter_sdio_irqs);
 #endif
 
 	ret = bes2600_data_read(short_buf, rx_size);
 	if (ret) {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "receive download firmware complete cmd rsp err:%d\n", ret);
+		bes_err("receive download firmware complete cmd rsp err:%d\n", ret);
 		goto err2;
 	}
 
 	//check device rx status
 	ret = bes_frame_rsp_check(short_buf, last_frame_num);
 	if (ret) {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "rsp download firmware complete err:%d\n", ret);
+		bes_err("rsp download firmware complete err:%d\n", ret);
 		goto err2;
 	}
 
 	if (auto_run == false) {
-		bes2600_info(BES2600_DBG_DOWNLOAD, "partial firmware(%s) is downloaded successfully\n", fw_name);
+		bes_devel("partial firmware(%s) is downloaded successfully\n", fw_name);
 		goto err2;
 	}
 
@@ -767,7 +768,7 @@ retry:
 	if (ret) {
 		goto err2;
 	} else {
-		bes2600_dbg(BES2600_DBG_DOWNLOAD, "bes salve rx ready %d bytes\n", tx_size);
+		bes_devel("bes salve rx ready %d bytes\n", tx_size);
 	}
 #endif
 #ifdef BES_SLAVE_RX_DOUBLE_CHECK
@@ -787,21 +788,21 @@ retry:
 	memcpy(short_buf + sizeof(struct fw_msg_hdr_t), (u8 *)&run_addr.addr, sizeof(struct run_fw_t));
 	length = BES_FW_MSG_TOTAL_LEN(header);
 
-	bes2600_dbg(BES2600_DBG_DOWNLOAD, "tx run firmware command:0x%X\n", run_addr.addr);
+	bes_devel("tx run firmware command:0x%X\n", run_addr.addr);
 
 	length = length > 512 ? length : 512;
 	ret = bes2600_data_write(short_buf, length);
 	if (ret) {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "tx run firmware command err:%d\n", ret);
+		bes_err("tx run firmware command err:%d\n", ret);
 		goto err2;
 	}
 
 #if 1
 	ret = bes_slave_tx_ready(fw_data, &rx_size, HZ);
 	if (!ret) {
-		bes2600_dbg(BES2600_DBG_DOWNLOAD, "bes_slave ready tx %d bytes\n", rx_size);
+		bes_devel("bes_slave ready tx %d bytes\n", rx_size);
 	} else {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "wait slave process run fw cmd err:%d\n", ret);
+		bes_err("wait slave process run fw cmd err:%d\n", ret);
 		goto err2;
 	}
 #ifdef BES_SLAVE_TX_DOUBLE_CHECK
@@ -815,18 +816,18 @@ retry:
 
 	ret = bes2600_data_read(short_buf, rx_size);
 	if (ret) {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "rx run firmware command err:%d\n", ret);
+		bes_err("rx run firmware command err:%d\n", ret);
 		goto err2;
 	}
 
 	//check device rx status
 	ret = bes_frame_rsp_check(short_buf, last_frame_num);
 	if (ret) {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "rsp run firmware command err:%d\n", ret);
+		bes_err("rsp run firmware command err:%d\n", ret);
 		goto err2;
 	}
 
-	bes2600_info(BES2600_DBG_DOWNLOAD, "%s", "firmware is downloaded successfully and is already running\n");
+	bes_devel("%s", "firmware is downloaded successfully and is already running\n");
 	msleep(500);
 
 err2:
@@ -865,34 +866,34 @@ static int bes_read_dpd_data(struct platform_fw_t *fw_data)
 
 	/* check if read dpd error */
 	if(ret < 0 || time_after(jiffies, wait_timeout)) {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "wait dpd data ready failed:%d\n", ret);
+		bes_err("wait dpd data ready failed:%d\n", ret);
 		return -1;
 	}
 
 	/* wait dpd read ready */
 	ret = bes_slave_tx_ready(fw_data, &dpd_size, HZ);
 	if (ret)  {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "wait dpd data failed:%d\n", ret);
+		bes_err("wait dpd data failed:%d\n", ret);
 		return -1;
 	}
 
 	/* dpd size check */
 	if (dpd_size != DPD_BIN_SIZE) {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "get dpd data size err:%u\n", dpd_size);
+		bes_err("get dpd data size err:%u\n", dpd_size);
 		return -1;
 	}
 
 	/* read dpd data */
 	dpd_buf = bes2600_chrdev_get_dpd_buffer(DPD_BIN_FILE_SIZE);
 	if(!dpd_buf) {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "allocate dpd buffer failed.\n");
+		bes_err("allocate dpd buffer failed.\n");
 		return -1;
 	}
 
 	ret = bes2600_data_read(dpd_buf, dpd_size);
-	bes2600_info(BES2600_DBG_DOWNLOAD, "read dpd data size:%d\n", dpd_size);
+	bes_devel("read dpd data size:%d\n", dpd_size);
 	if (ret) {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "read dpd data failed:%d\n", ret);
+		bes_err("read dpd data failed:%d\n", ret);
 		bes2600_chrdev_free_dpd_data();
 		return -1;
 	}
@@ -924,31 +925,31 @@ static int bes_read_dpd_log(struct platform_fw_t *fw_data)
 		time_before(jiffies, wait_timeout));
 
 	if(ret < 0 || time_after(jiffies, wait_timeout)) {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "wait dpd log ready failed:%d\n", ret);
+		bes_err("wait dpd log ready failed:%d\n", ret);
 		return -1;
 	}
 
 	/* wait dpd log dump data ready */
 	ret = bes_slave_tx_ready(fw_data, &dpd_log_size, HZ);
 	if (ret) {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "wait dpd log failed:%d\n", ret);
+		bes_err("wait dpd log failed:%d\n", ret);
 		return -1;
 	}
 
 	dpd_log = bes2600_alloc_dpd_log_buffer((dpd_log_size + 3) & (~0x3));
 	if(!dpd_log) {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "dpd log buffer alloc fail");
+		bes_err("dpd log buffer alloc fail");
 		return -1;
 	}
 
 	ret = bes2600_data_read(dpd_log, (dpd_log_size + 3) & (~0x3));
 	if (ret) {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "read dpd log failed:%d\n", ret);
+		bes_err("read dpd log failed:%d\n", ret);
 		bes2600_free_dpd_log_buffer();
 		return -1;
 	}
 
-	bes2600_info(BES2600_DBG_DOWNLOAD, "read dpd log size: %u\n", dpd_log_size);
+	bes_devel("read dpd log size: %u\n", dpd_log_size);
 
 	return ret;
 }
@@ -964,32 +965,37 @@ static int bes2600_load_wifi_firmware(struct platform_fw_t *fw_data)
 	fw_name_tbl[1] = BES2600_LOAD_NOSIGNAL_FW_NAME;
 	fw_name_tbl[2] = BES2600_LOAD_BTRF_FW_NAME;
 
-	bes2600_info(BES2600_DBG_DOWNLOAD, "bes2600 download cali and wifi signal firmware.\n");
+	bes_devel("bes2600 download cali and wifi signal firmware.\n");
 	ret = bes_firmware_download(fw_data, BES2600_LOAD_BOOT_NAME, true);
-	bes2600_err_with_cond(ret, BES2600_DBG_DOWNLOAD, "download dpd cali firmware failed\n");
+	if (ret)
+		bes_err("download dpd cali firmware failed\n");
 
 	if (!ret) {
-		bes2600_info(BES2600_DBG_DOWNLOAD, "bes2600 read dpd cali data.\n");
+		bes_devel("bes2600 read dpd cali data.\n");
 		ret = bes_read_dpd_data(fw_data);
-		bes2600_err_with_cond(ret, BES2600_DBG_DOWNLOAD, "read dpd data failed.\n");
+		if (ret)
+			bes_err("read dpd data failed.\n");
 	}
 
 #ifdef BES2600_DUMP_FW_DPD_LOG
 	if (!ret) {
-		bes2600_info(BES2600_DBG_DOWNLOAD, "bes2600 read dpd log data.\n");
+		bes_devel("bes2600 read dpd log data.\n");
 		ret = bes_read_dpd_log(fw_data);
-		bes2600_err_with_cond(ret, BES2600_DBG_DOWNLOAD, "dump dpd log failed.\n");
+		if (ret)
+			bes_err("dump dpd log failed.\n");
 	}
 #endif
 
 	/* for wifi non-signal mode, download second firmware directly */
 	if (!ret && bes2600_chrdev_check_system_close()) {
-		bes2600_info(BES2600_DBG_DOWNLOAD, "bes2600 device power down.\n");
+		bes_devel("bes2600 device power down.\n");
 		ret = bes2600_chrdev_do_system_close(fw_data->sbus_ops, fw_data->sbus_priv);
-		bes2600_err_with_cond(ret, BES2600_DBG_DOWNLOAD, "device down fail.\n");
+		if (ret)
+			bes_err("device down fail.\n");
 	} else if (!ret) {
 		ret = bes_firmware_download(fw_data, fw_name_tbl[fw_type], true);
-		bes2600_err_with_cond(ret, BES2600_DBG_DOWNLOAD, "download normal firmware failed.\n");
+		if (ret)
+			bes_err("download normal firmware failed.\n");
 	}
 
 	return ret;
@@ -1010,12 +1016,14 @@ static int bes2600_load_wifi_firmware_with_dpd(struct platform_fw_t *fw_data)
 	dpd_data = bes2600_chrdev_get_dpd_data(&dpd_data_len);
 	BUG_ON(!dpd_data);
 
-	bes2600_info(BES2600_DBG_DOWNLOAD, "bes2600 download firmware with dpd.\n");
+	bes_devel("bes2600 download firmware with dpd.\n");
 	ret = bes_firmware_download_write_mem(fw_data, BES2600_DPD_ADDR, dpd_data, dpd_data_len);
-	bes2600_err_with_cond(ret, BES2600_DBG_DOWNLOAD, "download dpd data failed.\n");
+	if (ret)
+		bes_err("download dpd data failed.\n");
 	if (!ret) {
 		ret = bes_firmware_download(fw_data, fw_name_tbl[fw_type], true);
-		bes2600_err_with_cond(ret, BES2600_DBG_DOWNLOAD, "download firmware failed after dpd download.\n");
+		if (ret)
+			bes_err("download firmware failed after dpd download.\n");
 	}
 
 	return ret;
@@ -1026,9 +1034,10 @@ static int bes2600_load_bt_firmware(struct platform_fw_t *fw_data)
 	int ret = 0;
 
 	/* for bt mode, don't need to download dpd cali firmware*/
-	bes2600_info(BES2600_DBG_DOWNLOAD, "download bt test firmware.\n");
+	bes_devel("download bt test firmware.\n");
 	ret = bes_firmware_download(fw_data, BES2600_LOAD_BTRF_FW_NAME, true);
-	bes2600_err_with_cond(ret, BES2600_DBG_DOWNLOAD, "download normal firmware failed.\n");
+	if (ret)
+		bes_err("download normal firmware failed.\n");
 
 	return ret;
 
@@ -1067,19 +1076,20 @@ int bes2600_load_firmware_sdio(struct sbus_ops *ops, struct sbus_priv *priv)
 
 	bes2600_factory_lock();
 	if (!(factory_data = bes2600_get_factory_cali_data(file_buffer, &factory_data_len, FACTORY_PATH))) {
-		bes2600_warn(BES2600_DBG_DOWNLOAD, "factory cali data get failed.\n");
+		bes_warn("factory cali data get failed.\n");
 	} else {
 		bes2600_factory_data_check(factory_data);
 		factory_little_endian_cvrt(factory_data);
 		ret = bes_firmware_download_write_mem(temp_fw_data, BES2600_FACTORY_ADDR, factory_data, factory_data_len);
-		bes2600_err_with_cond(ret, BES2600_DBG_DOWNLOAD, "download factory data failed.\n");
+		if (ret)
+			bes_err("download factory data failed.\n");
 	}
 
 	bes2600_factory_free_file_buffer(file_buffer);
 	bes2600_factory_unlock();
 #endif
 
-	bes2600_info(BES2600_DBG_DOWNLOAD, "%s fw_type:%d.\n", __func__, fw_type);
+	bes_devel("%s fw_type:%d.\n", __func__, fw_type);
 	if(fw_type == BES2600_FW_TYPE_BT) {
 		ret = bes2600_load_bt_firmware(temp_fw_data);
 	} else {
@@ -1101,7 +1111,7 @@ int bes2600_load_firmware_sdio(struct sbus_ops *ops, struct sbus_priv *priv)
 	temp_fw_data->sbus_ops->irq_unsubscribe(temp_fw_data->sbus_priv);
 	kfree(temp_fw_data);
 
-	bes2600_info(BES2600_DBG_DOWNLOAD, "download finished ,wifi_state:%d result is %d\n", bes2600_chrdev_is_wifi_opened(), ret);
+	bes_devel("download finished ,wifi_state:%d result is %d\n", bes2600_chrdev_is_wifi_opened(), ret);
 
 	return ret;
 }

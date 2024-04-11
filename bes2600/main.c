@@ -99,6 +99,8 @@ static struct ieee80211_rate bes2600_mcs_rates[] = {
 	.max_power		= 30,				\
 }
 
+struct device *global_dev = NULL;
+
 static struct ieee80211_channel bes2600_2ghz_chantable[] = {
 	CHAN2G(1, 2412, 0),
 	CHAN2G(2, 2417, 0),
@@ -298,11 +300,11 @@ static void bes2600_get_base_mac(struct bes2600_common *hw_priv)
 			memcpy(hw_priv->addresses[0].addr, addr, ETH_ALEN);
 			ok = true;
 		} else {
-			pr_err("bestechnic,bes2600 device node does not have valid local-mac-address property, random mac will be used!\n");
+			bes_err("bestechnic,bes2600 device node does not have valid local-mac-address property, random mac will be used!\n");
 		}
 		of_node_put(np);
 		} else {
-		pr_err("bestechnic,bes2600 device node NOT found, random mac will be used!\n");
+		bes_err("bestechnic,bes2600 device node NOT found, random mac will be used!\n");
 	}
 	if (!ok)
 		get_random_bytes(hw_priv->addresses[0].addr, ETH_ALEN);
@@ -335,8 +337,6 @@ static struct ieee80211_hw *bes2600_init_common(size_t hw_priv_data_len)
 		return NULL;
 
 	hw_priv = hw->priv;
-	/* TODO:COMBO this debug message can be removed */
-	bes2600_err(BES2600_DBG_INIT, "Allocated hw_priv @ %p\n", hw_priv);
 	hw_priv->if_id_slot = 0;
 	hw_priv->roc_if_id = -1;
 	hw_priv->scan_switch_if_id = -1;
@@ -554,8 +554,7 @@ static int bes2600_register_common(struct ieee80211_hw *dev)
 
 	err = ieee80211_register_hw(dev);
 	if (err) {
-		bes2600_err(BES2600_DBG_INIT, "Cannot register device (%d).\n",
-				err);
+		bes_err("Cannot register device (%d).\n", err);
 		return err;
 	}
 
@@ -572,8 +571,7 @@ static int bes2600_register_common(struct ieee80211_hw *dev)
 #ifdef CONFIG_PM
 	bes2600_register_pm_notifier(hw_priv);
 #endif /* CONFIG_PM */
-	bes2600_info(BES2600_DBG_INIT, "is registered as '%s'\n",
-			wiphy_name(dev->wiphy));
+	bes_info("is registered as '%s'\n", wiphy_name(dev->wiphy));
 	return 0;
 }
 
@@ -742,6 +740,8 @@ int bes2600_core_probe(const struct sbus_ops *sbus_ops,
 	if (!dev)
 		goto err;
 
+	global_dev = pdev;
+
 	hw_priv = dev->priv;
 	hw_priv->sbus_ops = sbus_ops;
 	hw_priv->sbus_priv = sbus;
@@ -812,7 +812,7 @@ int access_file(char *path, char *buffer, int size, int isRead)
 		fp = filp_open(path,O_CREAT|O_WRONLY,S_IRUSR);
 
 	if (IS_ERR(fp)) {
-		bes2600_err(BES2600_DBG_INIT, "BES2600 : can't open %s\n",path);
+		bes_err("BES2600 : can't open %s\n", path);
 		return -1;
 	}
 
@@ -829,7 +829,7 @@ int access_file(char *path, char *buffer, int size, int isRead)
 	}
 	filp_close(fp,NULL);
 
-	bes2600_info(BES2600_DBG_INIT, "BES2600 : access_file return code(%d)\n",ret);
+	bes_info("BES2600 : access_file return code(%d)\n", ret);
 	return ret;
 }
 #endif
@@ -851,7 +851,7 @@ int bes2600_wifi_start(struct bes2600_common *hw_priv)
 
 		/* TODO: Needs to find how to reset device */
 		/*       in QUEUE mode properly.           */
-		bes2600_info(BES2600_DBG_INIT, "startup timeout!!!\n");
+		bes_info("startup timeout!!!\n");
 		ret = -ENODEV;
 		goto err;
 	}
@@ -880,7 +880,8 @@ int bes2600_wifi_stop(struct bes2600_common *hw_priv)
 	unsigned long status = 0;
 
 	status = wait_event_timeout(hw_priv->bh_evt_wq, (!hw_priv->hw_bufs_used), 3 * HZ);
-	bes2600_err_with_cond((!status), BES2600_DBG_INIT, "communication exception!");
+	if (!status)
+		bes_err("communication exception!\n");
 
 	if(hw_priv->sbus_ops->gpio_wake) {
 		hw_priv->sbus_ops->gpio_wake(hw_priv->sbus_priv, GPIO_WAKE_FLAG_WIFI_OFF);

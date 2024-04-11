@@ -15,6 +15,7 @@
 #include "bes_pwr.h"
 #include "sta.h"
 #include "bes_chardev.h"
+#include "bes_log.h"
 
 static void bes2600_add_power_delay_event(struct bes2600_pwr_t *bes_pwr, u32 event, u32 timeout);
 
@@ -34,15 +35,11 @@ static void bes2600_dump_power_busy_event(struct bes2600_pwr_t *bes_pwr, char* l
 	const int single_buffer_len = 4096;
 	const int all_bufer_len = single_buffer_len * 3;
 
-	if(bes2600_get_dbg_lvl(BES2600_DBG_PWR) < BES2600_LOG_DBG) {
-		return;
-	}
-
-	bes2600_dbg(BES2600_DBG_PWR, "power busy event dump at %s\n", location);
+	bes_devel("power busy event dump at %s\n", location);
 
 	async_dump_str = kzalloc(all_bufer_len, GFP_ATOMIC);
 	if(async_dump_str == NULL) {
-		bes2600_err(BES2600_DBG_PWR, "%s alloc buffer failed\n", __func__);
+		bes_err("%s alloc buffer failed\n", __func__);
 		return;
 	}
 
@@ -112,21 +109,21 @@ static void bes2600_dump_power_busy_event(struct bes2600_pwr_t *bes_pwr, char* l
 	}
 out:
 	if(!dump_async_ok) {
-		bes2600_err(BES2600_DBG_PWR, "buffer is not enough for dumping async event\n");
+		bes_err("buffer is not enough for dumping async event\n");
 	} else {
-		bes2600_dbg(BES2600_DBG_PWR, "%s", async_dump_str);
+		bes_devel("%s", async_dump_str);
 	}
 
 	if(!dump_pending_ok) {
-		bes2600_err(BES2600_DBG_PWR, "buffer is not enough for dumping pending event\n");
+		bes_err("buffer is not enough for dumping pending event\n");
 	} else {
-		bes2600_dbg(BES2600_DBG_PWR, "%s", pending_dump_str);
+		bes_devel("%s", pending_dump_str);
 	}
 
 	if(!dump_free_ok) {
-		bes2600_err(BES2600_DBG_PWR, "buffer is not enough for dumping free event\n");
+		bes_err("buffer is not enough for dumping free event\n");
 	} else {
-		bes2600_dbg(BES2600_DBG_PWR, "%s", free_dump_str);
+		bes_devel("%s", free_dump_str);
 	}
 
 	kfree(async_dump_str);
@@ -220,7 +217,7 @@ static bool bes2600_update_power_delay_events(struct bes2600_pwr_t *bes_pwr, uns
 		       continue;
 		}
 		if(time_after(jiffies, item->timeout)) {
-			bes2600_dbg(BES2600_DBG_PWR, "power busy event:0x%08x timeout\n", item->event);
+			bes_devel("power busy event:0x%08x timeout\n", item->event);
 			list_move_tail(&item->link, &bes_pwr->free_event_list);
 		} else {
 			if(max_timeout == 0) {
@@ -263,7 +260,7 @@ static void bes2600_add_async_timeout_power_delay_event(struct bes2600_pwr_t *be
 	} else {
 		/* delete expired event if free_event_list is empty */
 		if(list_empty(&bes_pwr->free_event_list)) {
-			bes2600_info(BES2600_DBG_PWR, "%s, update delay event\n", __func__);
+			bes_devel("%s, update delay event\n", __func__);
 			bes2600_update_power_delay_events(bes_pwr, &max_timeout);
 		}
 
@@ -271,7 +268,7 @@ static void bes2600_add_async_timeout_power_delay_event(struct bes2600_pwr_t *be
 		BUG_ON(list_empty(&bes_pwr->free_event_list));
 
 		/* add event instance to pending list */
-		bes2600_dbg(BES2600_DBG_PWR, "%s, add async event:%d(%d) timeout:%d\n",
+		bes_devel("%s, add async event:%d(%d) timeout:%d\n",
 			__func__, BES_PWR_EVENT_NUMBER(event),  event >> 31, timeout);
 		item = list_first_entry(&bes_pwr->free_event_list,
 			struct bes2600_pwr_event_t, link);
@@ -301,12 +298,12 @@ static void bes2600_add_power_delay_event(struct bes2600_pwr_t *bes_pwr, u32 eve
 	if(match && (item != NULL)) {
 		/* duplicate event */
 		item->timeout = jiffies + (timeout * HZ + HZ * BES2600_POWER_DOWN_DELAY) / 1000;
-		bes2600_dbg(BES2600_DBG_PWR, "%s, update event:%d(%d) timeout:%d\n",
+		bes_devel("%s, update event:%d(%d) timeout:%d\n",
 			__func__, BES_PWR_EVENT_NUMBER(event),  event >> 31, timeout);
 	} else {
 		/* delete expired event if free_event_list is empty */
 		if(list_empty(&bes_pwr->free_event_list)) {
-			bes2600_info(BES2600_DBG_PWR, "%s, update delay event\n", __func__);
+			bes_devel("%s, update delay event\n", __func__);
 			bes2600_update_power_delay_events(bes_pwr, &max_timeout);
 		}
 
@@ -314,7 +311,7 @@ static void bes2600_add_power_delay_event(struct bes2600_pwr_t *bes_pwr, u32 eve
 		BUG_ON(list_empty(&bes_pwr->free_event_list));
 
 		/* add event instance to pending list */
-		bes2600_dbg(BES2600_DBG_PWR, "%s, add event:%d(%d) timeout:%d\n",
+		bes_devel("%s, add event:%d(%d) timeout:%d\n",
 			__func__, BES_PWR_EVENT_NUMBER(event),  event >> 31, timeout);
 		item = list_first_entry(&bes_pwr->free_event_list,
 			struct bes2600_pwr_event_t, link);
@@ -334,7 +331,7 @@ static bool bes2600_del_pending_event(struct bes2600_pwr_t *bes_pwr, u32 event)
 		if(event == item->event) {
 			matched = true;
 			list_move_tail(&item->link, &bes_pwr->free_event_list);
-			bes2600_dbg(BES2600_DBG_PWR, "delete pending event:%d(%d)\n",
+			bes_devel("delete pending event:%d(%d)\n",
 				BES_PWR_EVENT_NUMBER(event), event >> 31);
 			break;
 		}
@@ -351,7 +348,7 @@ static void bes2600_flush_pending_events(struct bes2600_pwr_t *bes_pwr)
 
 	list_for_each_entry_safe(item, temp, &bes_pwr->pending_event_list, link) {
 		list_move_tail(&item->link, &bes_pwr->free_event_list);
-		bes2600_dbg(BES2600_DBG_PWR, "flush pending event:%d(%d)\n",
+		bes_devel("flush pending event:%d(%d)\n",
 				BES_PWR_EVENT_NUMBER(item->event), item->event >> 31);
 	}
 	bes2600_dump_power_busy_event(bes_pwr, "flush");
@@ -363,7 +360,7 @@ static void bes2600_trigger_power_delay_down(struct bes2600_pwr_t *bes_pwr, unsi
 	max_timeout = (max_timeout >= jiffies) ?
 		(max_timeout - jiffies) : (ULONG_MAX - jiffies + max_timeout);
 
-	bes2600_dbg(BES2600_DBG_PWR, "restart delayed work, timeout:%lu\n", max_timeout);
+	bes_devel("restart delayed work, timeout:%lu\n", max_timeout);
 	queue_delayed_work(bes_pwr->hw_priv->workqueue, &bes_pwr->power_down_work, max_timeout);
 }
 
@@ -374,7 +371,7 @@ static void bes2600_pwr_lock_tx(struct bes2600_common *hw_priv)
 	spin_lock_irqsave(&hw_priv->bes_power.pwr_lock, flags);
 	if(!hw_priv->bes_power.pending_lock) {
 		hw_priv->bes_power.pending_lock = true;
-		bes2600_dbg(BES2600_DBG_PWR, "bes pwr lock tx\n");
+		bes_devel("bes pwr lock tx\n");
 		wsm_lock_tx_async(hw_priv);
 	}
 	spin_unlock_irqrestore(&hw_priv->bes_power.pwr_lock, flags);
@@ -387,7 +384,7 @@ static void bes2600_pwr_unlock_tx(struct bes2600_common *hw_priv)
 	spin_lock_irqsave(&hw_priv->bes_power.pwr_lock, flags);
 	if(hw_priv->bes_power.pending_lock) {
 		hw_priv->bes_power.pending_lock = false;
-		bes2600_dbg(BES2600_DBG_PWR, "bes pwr unlock tx\n");
+		bes_devel("bes pwr unlock tx\n");
 		wsm_unlock_tx(hw_priv);
 	}
 	spin_unlock_irqrestore(&hw_priv->bes_power.pwr_lock, flags);
@@ -451,21 +448,23 @@ static void bes2600_pwr_device_enter_lp_mode(struct bes2600_common *hw_priv)
 		.disableMoreFlagUsage = true,
 	};
 
-	bes2600_dbg(BES2600_DBG_PWR, "host unlock lmac\n");
+	bes_devel("host unlock lmac\n");
 	ret = wsm_set_operational_mode(hw_priv, &mode, 0);
-	bes2600_err_with_cond(ret, BES2600_DBG_PWR, "%s, set operation mode fail\n", __func__);
+	if (ret)
+		bes_err("%s, set operation mode fail\n", __func__);
 
 	/* wait other module to finish work */
 	bes2600_pwr_call_enter_lp_cb(hw_priv);
 
 	if(hw_priv->sbus_ops->sbus_deactive) {
 		ret = hw_priv->sbus_ops->sbus_deactive(hw_priv->sbus_priv, SUBSYSTEM_MCU);
-		bes2600_err_with_cond(ret, BES2600_DBG_PWR, "%s, deactive mcu fail\n", __func__);
+		if (ret)
+			bes_err("%s, deactive mcu fail\n", __func__);
 	}
 
 	if(hw_priv->sbus_ops->gpio_sleep)
 		hw_priv->sbus_ops->gpio_sleep(hw_priv->sbus_priv, GPIO_WAKE_FLAG_MCU);
-	bes2600_info(BES2600_DBG_PWR, "device enter sleep\n");
+	bes_devel("device enter sleep\n");
 }
 
 static int bes2600_pwr_enter_lp_mode(struct bes2600_common *hw_priv)
@@ -490,10 +489,11 @@ static int bes2600_pwr_enter_lp_mode(struct bes2600_common *hw_priv)
 		    priv->setbssparams_done) {
 			/* enable arp filter */
 			if (priv->filter4.enable) {
-				bes2600_dbg(BES2600_DBG_PWR, "%s, arp filter, enable:%d addr:%s\n",
+				bes_devel("%s, arp filter, enable:%d addr:%s\n",
 					__func__, priv->filter4.enable, bes2600_get_mac_str(ip_str, priv->filter4.ipv4Address[0]));
 				ret = wsm_set_arp_ipv4_filter(hw_priv, &priv->filter4, priv->if_id);
-				bes2600_err_with_cond(ret, BES2600_DBG_PWR, "%s, set arp filter failed\n", __func__);
+				if (ret)
+					bes_err("%s, set arp filter failed\n", __func__);
 			}
 
 			/* skip beacon receive if applications don't have muticast service */
@@ -505,7 +505,8 @@ static int bes2600_pwr_enter_lp_mode(struct bes2600_common *hw_priv)
 					listen_interval = CONFIG_BES2600_LISTEN_INTERVAL / priv->join_dtim_period * priv->join_dtim_period;
 				}
 				ret = wsm_set_beacon_wakeup_period(hw_priv, 1, listen_interval, priv->if_id);
-				bes2600_err_with_cond(ret, BES2600_DBG_PWR, "%s, set wakeup period failed\n", __func__);
+				if (ret)
+					bes_err("%s, set wakeup period failed\n", __func__);
 			}
 
 			/* Set Enable Broadcast Address Filter */
@@ -514,27 +515,29 @@ static int bes2600_pwr_enter_lp_mode(struct bes2600_common *hw_priv)
 			if (priv->join_status == BES2600_JOIN_STATUS_AP)
 				priv->broadcast_filter.address_mode = WSM_FILTER_ADDR_MODE_A3;
 			ret = bes2600_set_macaddrfilter(hw_priv, priv, (u8 *)&priv->broadcast_filter);
-			bes2600_err_with_cond(ret, BES2600_DBG_PWR, "%s, set bc filter failed\n", __func__);
+			if (ret)
+				bes_err("%s, set bc filter failed\n", __func__);
 
 			/* enter low power mode */
 			if(!hw_priv->bes_power.ap_lp_bad) {
-				bes2600_dbg(BES2600_DBG_PWR, "%s, psMode:%s, fastPsmIdlePeriod:%d apPsmChangePeriod:%d minAutoPsPollPeriod:%d\n",
+				bes_devel("%s, psMode:%s, fastPsmIdlePeriod:%d apPsmChangePeriod:%d minAutoPsPollPeriod:%d\n",
 						__func__, bes2600_get_ps_mode_str(priv->powersave_mode.pmMode), priv->powersave_mode.fastPsmIdlePeriod,
 						priv->powersave_mode.apPsmChangePeriod, priv->powersave_mode.minAutoPsPollPeriod);
 				atomic_set(&hw_priv->bes_power.pm_set_in_process, 1);
 				ret = bes2600_set_pm(priv, &priv->powersave_mode);
 				if (ret) {
 					atomic_set(&hw_priv->bes_power.pm_set_in_process, 0);
-					bes2600_err(BES2600_DBG_PWR, "%s, set operation mode fail\n", __func__);
+					bes_err("%s, set operation mode fail\n", __func__);
 				}
 
 				/* wait power save mode changed indication */
 				status = wait_for_completion_timeout(&hw_priv->bes_power.pm_enter_cmpl, 5 * HZ);
 				atomic_set(&hw_priv->bes_power.pm_set_in_process, 0);
 				reinit_completion(&hw_priv->bes_power.pm_enter_cmpl);
-				bes2600_err_with_cond(!status, BES2600_DBG_PWR, "%s, wait pm ind timeout\n", __func__);
+				if (!status)
+					bes_err("%s, wait pm ind timeout\n", __func__);
 			} else {
-				bes2600_info(BES2600_DBG_PWR, "skip enter lp mode\n");
+				bes_devel("skip enter lp mode\n");
 			}
 		}
 	}
@@ -553,18 +556,20 @@ static void bes2600_pwr_device_exit_lp_mode(struct bes2600_common *hw_priv)
 		.disableMoreFlagUsage = true,
 	};
 
-	bes2600_dbg(BES2600_DBG_PWR, "host lock lmac\n");
+	bes_devel("host lock lmac\n");
 	if(hw_priv->sbus_ops->gpio_wake)
 		hw_priv->sbus_ops->gpio_wake(hw_priv->sbus_priv, GPIO_WAKE_FLAG_MCU);
 
 	if(hw_priv->sbus_ops->sbus_active) {
 		ret = hw_priv->sbus_ops->sbus_active(hw_priv->sbus_priv, SUBSYSTEM_MCU);
-		bes2600_err_with_cond(ret, BES2600_DBG_PWR, "%s, active mcu fail\n", __func__);
+		if (ret)
+			bes_err("%s, active mcu fail\n", __func__);
 	}
 
 	ret = wsm_set_operational_mode(hw_priv, &mode, 0);
-	bes2600_err_with_cond(ret, BES2600_DBG_PWR, "%s, set operation mode fail\n", __func__);
-	bes2600_info(BES2600_DBG_PWR, "device exit sleep\n");
+	if (ret)
+		bes_err("%s, set operation mode fail\n", __func__);
+	bes_devel("device exit sleep\n");
 }
 
 static int bes2600_pwr_exit_lp_mode(struct bes2600_common *hw_priv)
@@ -594,33 +599,37 @@ static int bes2600_pwr_exit_lp_mode(struct bes2600_common *hw_priv)
 			if (priv->filter4.enable) {
 				filter = priv->filter4;
 				filter.enable = false;
-				bes2600_dbg(BES2600_DBG_PWR, "%s, arp filter, enable:%d addr:%s\n",
+				bes_devel("%s, arp filter, enable:%d addr:%s\n",
 					__func__, filter.enable, bes2600_get_mac_str(ip_str, filter.ipv4Address[0]));
 				ret = wsm_set_arp_ipv4_filter(hw_priv, &filter, priv->if_id);
-				bes2600_err_with_cond(ret, BES2600_DBG_PWR, "%s, set arp filter failed\n", __func__);
+				if (ret)
+					bes_err("%s, set arp filter failed\n", __func__);
 			}
 
 			/* set wakeup perioid */
 			wsm_set_beacon_wakeup_period(hw_priv, priv->join_dtim_period, 0, priv->if_id);
-			bes2600_err_with_cond(ret, BES2600_DBG_PWR, "%s, set wakeup period failed\n", __func__);
+			if (ret)
+				bes_err("%s, set wakeup period failed\n", __func__);
 
 			/* Set Enable Broadcast Address Filter */
 			priv->broadcast_filter.action_mode = WSM_FILTER_ACTION_IGNORE;
 			if (priv->join_status == BES2600_JOIN_STATUS_AP)
 				priv->broadcast_filter.address_mode = WSM_FILTER_ADDR_MODE_NONE;
 			bes2600_set_macaddrfilter(hw_priv, priv, (u8 *)&priv->broadcast_filter);
-			bes2600_err_with_cond(ret, BES2600_DBG_PWR, "%s, set bc filter failed\n", __func__);
+			if (ret)
+				bes_err("%s, set bc filter failed\n", __func__);
 
 			/* exit low power mode */
 			if(!hw_priv->bes_power.ap_lp_bad) {
 				pm = priv->powersave_mode;
 				pm.pmMode = WSM_PSM_ACTIVE;
-				bes2600_dbg(BES2600_DBG_PWR, "%s, psMode:%s, fastPsmIdlePeriod:%d apPsmChangePeriod:%d minAutoPsPollPeriod:%d\n",
+				bes_devel("%s, psMode:%s, fastPsmIdlePeriod:%d apPsmChangePeriod:%d minAutoPsPollPeriod:%d\n",
 						__func__, bes2600_get_ps_mode_str(pm.pmMode), pm.fastPsmIdlePeriod, pm.apPsmChangePeriod, pm.minAutoPsPollPeriod);
 				ret = bes2600_set_pm(priv, &pm);
-				bes2600_err_with_cond(ret, BES2600_DBG_PWR, "%s, set operation mode fail\n", __func__);
+				if (ret)
+					bes_err("%s, set operation mode fail\n", __func__);
 			} else {
-				bes2600_info(BES2600_DBG_PWR, "skip exit lp mode\n");
+				bes_devel("skip exit lp mode\n");
 			}
 		}
 	}
@@ -721,17 +730,17 @@ static void bes2600_power_down_work(struct work_struct *work)
 
         if(!constant_event_exist && max_timeout == 0) {
                 /* no pending event, unlock device */
-                bes2600_dbg(BES2600_DBG_PWR, "%s no pending event\n", __func__);
+                bes_devel("%s no pending event\n", __func__);
                 bes2600_pwr_unlock_device(hw_priv);
                 wake_up(&hw_priv->bes_power.dev_lp_wq);
         } else {
                 /* have power busy event, lock device */
-                bes2600_dbg(BES2600_DBG_PWR, "%s have pending event\n", __func__);
+                bes_devel("%s have pending event\n", __func__);
                 bes2600_pwr_lock_device(hw_priv);
 
                 /* only have delayed power busy event, restart delayed work */
                 if(!constant_event_exist && max_timeout > 0) {
-                        bes2600_dbg(BES2600_DBG_PWR, "%s restart delayed work\n", __func__);
+                        bes_devel("%s restart delayed work\n", __func__);
                         spin_lock_irqsave(&hw_priv->bes_power.pwr_lock, flags);
                         bes2600_trigger_power_delay_down(&hw_priv->bes_power, max_timeout);
                         spin_unlock_irqrestore(&hw_priv->bes_power.pwr_lock, flags);
@@ -765,7 +774,7 @@ static void bes2600_power_mcu_down_work(struct work_struct *work)
 	if(!constant_event_exist &&
 	   max_timeout == 0 &&
 	   power_state == POWER_DOWN_STATE_UNLOCKED) {
-		bes2600_info(BES2600_DBG_PWR, "mcu sleep directly");
+		bes_devel("mcu sleep directly");
 		mutex_lock(&hw_priv->bes_power.pwr_mutex);
 
 		if(hw_priv->sbus_ops->gpio_wake)
@@ -773,12 +782,14 @@ static void bes2600_power_mcu_down_work(struct work_struct *work)
 
 		if(hw_priv->sbus_ops->sbus_active) {
 			ret = hw_priv->sbus_ops->sbus_active(hw_priv->sbus_priv, SUBSYSTEM_MCU);
-			bes2600_err_with_cond(ret, BES2600_DBG_PWR, "%s, active mcu fail\n", __func__);
+			if (ret)
+				bes_err("%s, active mcu fail\n", __func__);
 		}
 
 		 if(hw_priv->sbus_ops->sbus_deactive) {
 			ret = hw_priv->sbus_ops->sbus_deactive(hw_priv->sbus_priv, SUBSYSTEM_MCU);
-			bes2600_err_with_cond(ret, BES2600_DBG_PWR, "%s, deactive mcu fail\n", __func__);
+			if (ret)
+				bes_err("%s, deactive mcu fail\n", __func__);
 		}
 
 		if(hw_priv->sbus_ops->gpio_sleep)
@@ -846,7 +857,7 @@ void bes2600_pwr_start(struct bes2600_common *hw_priv)
 
 	/* start power management state machine */
 	atomic_set(&hw_priv->bes_power.dev_state, 1);
-	bes2600_dbg(BES2600_DBG_PWR, "start power management.\n");
+	bes_devel("start power management.\n");
 
 	/* enable device wakeup function */
 	device_wakeup_enable(hw_priv->pdev);
@@ -881,7 +892,7 @@ void bes2600_pwr_stop(struct bes2600_common *hw_priv)
 
 	/* stop power management state machine */
 	atomic_set(&hw_priv->bes_power.dev_state, 0);
-	bes2600_info(BES2600_DBG_PWR, "stop power management.\n");
+	bes_devel("stop power management.\n");
 
 	/* cancel pending work */
 	cancel_delayed_work_sync(&hw_priv->bes_power.power_down_work);
@@ -899,8 +910,8 @@ void bes2600_pwr_stop(struct bes2600_common *hw_priv)
 
 	/* allow mcu sleep */
 	bes2600_power_down_work(&hw_priv->bes_power.power_down_work.work);
-	bes2600_warn_with_cond(hw_priv->bes_power.power_state != POWER_DOWN_STATE_UNLOCKED,
-				BES2600_DBG_PWR, "power state is not unlocked when stop.\n");
+	if (hw_priv->bes_power.power_state != POWER_DOWN_STATE_UNLOCKED)
+		bes_warn("power state is not unlocked when stop.\n");
 
 	/* unlock tx if tx is locked */
 	bes2600_pwr_unlock_tx(hw_priv);
@@ -998,7 +1009,7 @@ int bes2600_pwr_set_busy_event(struct bes2600_common *hw_priv, u32 event)
 
 	if(need_wait) {
 		/* lock device is doing, wait operation done */
-		bes2600_info(BES2600_DBG_PWR, "%s wait lock device done, event:%d\n", __func__, BES_PWR_EVENT_NUMBER(event));
+		bes_devel("%s wait lock device done, event:%d\n", __func__, BES_PWR_EVENT_NUMBER(event));
 		mutex_lock(&hw_priv->bes_power.pwr_mutex);
 		mutex_unlock(&hw_priv->bes_power.pwr_mutex);
 	}
@@ -1008,7 +1019,7 @@ int bes2600_pwr_set_busy_event(struct bes2600_common *hw_priv, u32 event)
 		cancel_delayed_work_sync(&hw_priv->bes_power.power_down_work);
 		flush_delayed_work(&hw_priv->bes_power.power_down_work);
 
-		bes2600_info(BES2600_DBG_PWR, "%s lock device by event:%d\n", __func__, BES_PWR_EVENT_NUMBER(event));
+		bes_devel("%s lock device by event:%d\n", __func__, BES_PWR_EVENT_NUMBER(event));
 		bes2600_pwr_lock_device(hw_priv);
 	}
 
@@ -1034,7 +1045,7 @@ int bes2600_pwr_set_busy_event_async(struct bes2600_common *hw_priv, u32 event)
 	spin_unlock_irqrestore(&hw_priv->bes_power.pwr_lock, flags);
 
 	if(need_lock && !work_pending(&hw_priv->bes_power.power_async_work)) {
-		bes2600_info(BES2600_DBG_PWR, "%s lock device by event:%d\n", __func__, BES_PWR_EVENT_NUMBER(event));
+		bes_devel("%s lock device by event:%d\n", __func__, BES_PWR_EVENT_NUMBER(event));
 		queue_work(hw_priv->workqueue, &hw_priv->bes_power.power_async_work);
 	}
 
@@ -1071,14 +1082,14 @@ int bes2600_pwr_set_busy_event_with_timeout(struct bes2600_common *hw_priv, u32 
 
 	if(need_wait) {
 		/* lock device is doing, wait operation done */
-		bes2600_info(BES2600_DBG_PWR, "%s wait lock device done, event:%d\n", __func__, event);
+		bes_devel("%s wait lock device done, event:%d\n", __func__, event);
 		mutex_lock(&hw_priv->bes_power.pwr_mutex);
 		mutex_unlock(&hw_priv->bes_power.pwr_mutex);
 	}
 
 	if(need_lock) {
 		/* cancel delayed work */
-		bes2600_info(BES2600_DBG_PWR, "%s lock device by event:%d\n", __func__, event);
+		bes_devel("%s lock device by event:%d\n", __func__, event);
 		cancel_delayed_work_sync(&hw_priv->bes_power.power_down_work);
 		flush_delayed_work(&hw_priv->bes_power.power_down_work);
 
@@ -1119,7 +1130,7 @@ int bes2600_pwr_set_busy_event_with_timeout_async(struct bes2600_common *hw_priv
 	spin_unlock_irqrestore(&hw_priv->bes_power.pwr_lock, flags);
 
 	if(need_lock && !work_pending(&hw_priv->bes_power.power_async_work)) {
-		bes2600_info(BES2600_DBG_PWR, "%s lock device by event:%d\n", __func__, event);
+		bes_devel("%s lock device by event:%d\n", __func__, event);
 		queue_work(hw_priv->workqueue, &hw_priv->bes_power.power_async_work);
 	}
 
@@ -1179,7 +1190,7 @@ int bes2600_pwr_clear_busy_event(struct bes2600_common *hw_priv, u32 event)
 
 	/* trigger power down delayed work */
 	if(!delayed_work_pending(&hw_priv->bes_power.power_down_work)) {
-		bes2600_dbg(BES2600_DBG_PWR, "%s restart delayed work\n", __func__);
+		bes_devel("%s restart delayed work\n", __func__);
 		bes2600_pwr_trigger_delayed_work(hw_priv);
 	}
 
@@ -1189,7 +1200,7 @@ int bes2600_pwr_clear_busy_event(struct bes2600_common *hw_priv, u32 event)
 void bes2600_pwr_notify_ps_changed(struct bes2600_common *hw_priv, u8 psmode)
 {
 	if((psmode & 0x01) != WSM_PSM_ACTIVE) {
-		bes2600_dbg(BES2600_DBG_PWR, "complete pm_enter_cmpl\n");
+		bes_devel("complete pm_enter_cmpl\n");
 		complete(&hw_priv->bes_power.pm_enter_cmpl);
 	}
 }
@@ -1216,7 +1227,7 @@ void bes2600_pwr_register_en_lp_cb(struct bes2600_common *hw_priv, bes_pwr_enter
 	mutex_lock(&hw_priv->bes_power.pwr_cb_mutex);
 	list_for_each_entry(item, &hw_priv->bes_power.enter_cb_list, link) {
 		if(item->cb == cb) {
-			bes2600_warn(BES2600_DBG_PWR, "the enter cb is already exist\n");
+			bes_warn("the enter cb is already exist\n");
 			mutex_unlock(&hw_priv->bes_power.pwr_cb_mutex);
 			return;
 		}
@@ -1229,7 +1240,8 @@ void bes2600_pwr_register_en_lp_cb(struct bes2600_common *hw_priv, bes_pwr_enter
 	}
 	mutex_unlock(&hw_priv->bes_power.pwr_cb_mutex);
 
-	bes2600_err_with_cond(item == NULL, BES2600_DBG_PWR, "register en_lp_cb fail.\n");
+	if (item == NULL)
+		bes_err("register en_lp_cb fail.\n");
 }
 
 void bes2600_pwr_unregister_en_lp_cb(struct bes2600_common *hw_priv, bes_pwr_enter_lp_cb cb)
@@ -1255,7 +1267,7 @@ void bes2600_pwr_register_exit_lp_cb(struct bes2600_common *hw_priv, bes_pwr_ent
 	list_for_each_entry(item, &hw_priv->bes_power.exit_cb_list, link) {
 		if(item->cb == cb) {
 			mutex_unlock(&hw_priv->bes_power.pwr_cb_mutex);
-			bes2600_warn(BES2600_DBG_PWR, "the exit cb is already exist\n");
+			bes_warn("the exit cb is already exist\n");
 			return;
 		}
 	}
@@ -1267,7 +1279,8 @@ void bes2600_pwr_register_exit_lp_cb(struct bes2600_common *hw_priv, bes_pwr_ent
 	}
 	mutex_unlock(&hw_priv->bes_power.pwr_cb_mutex);
 
-	bes2600_err_with_cond(item == NULL, BES2600_DBG_PWR, "register en_lp_cb fail.\n");
+	if (item == NULL)
+		bes_err("register en_lp_cb fail.\n");
 }
 
 void bes2600_pwr_unregister_exit_lp_cb(struct bes2600_common *hw_priv, bes_pwr_enter_lp_cb cb)
@@ -1372,13 +1385,13 @@ void bes2600_pwr_mark_ap_lp_bad(struct bes2600_common *hw_priv)
 
 	bes2600_pwr_set_busy_event_with_timeout(hw_priv, BES_PWR_LOCK_ON_AP_LP_BAD, 100);
 	hw_priv->bes_power.ap_lp_bad = true;
-	bes2600_info(BES2600_DBG_PWR, "mark ap_lp_bad flag\n");
+	bes_devel("mark ap_lp_bad flag\n");
 }
 
 void bes2600_pwr_clear_ap_lp_bad_mark(struct bes2600_common *hw_priv)
 {
 	hw_priv->bes_power.ap_lp_bad = false;
-	bes2600_info(BES2600_DBG_PWR, "clear ap_lp_bad flag\n");
+	bes_devel("clear ap_lp_bad flag\n");
 }
 
 int bes2600_pwr_busy_event_dump(struct bes2600_common *hw_priv, char *buffer, u32 buf_len)

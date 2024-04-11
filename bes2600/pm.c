@@ -18,6 +18,7 @@
 #include "bh.h"
 #include "sbus.h"
 #include "bes_chardev.h"
+#include "bes_log.h"
 
 #define BES2600_BEACON_SKIPPING_MULTIPLIER 3
 
@@ -142,7 +143,7 @@ void bes2600_pending_unjoin_reset(struct bes2600_common *hw_priv)
 void bes2600_pending_unjoin_set(struct bes2600_common *hw_priv, int if_id)
 {
 	if(if_id > 1)
-		bes2600_err(BES2600_DBG_PM, "unexpected if_id: %d\n", if_id);
+		bes_err("unexpected if_id: %d\n", if_id);
 	else
 		hw_priv->unjoin_if_id_slots |= (1 << if_id);
 }
@@ -150,7 +151,7 @@ void bes2600_pending_unjoin_set(struct bes2600_common *hw_priv, int if_id)
 bool bes2600_pending_unjoin_get(struct bes2600_common *hw_priv, int if_id)
 {
 	if(if_id > 1) {
-		bes2600_err(BES2600_DBG_PM, "unexpected if_id: %d\n", if_id);
+		bes_err("unexpected if_id: %d\n", if_id);
 		return false;
 	} else
 		return hw_priv->unjoin_if_id_slots & (1 << if_id);
@@ -249,7 +250,7 @@ int bes2600_wow_suspend(struct ieee80211_hw *hw, struct cfg80211_wowlan *wowlan)
 	unsigned long begin, end, diff;
 	char *busy_event_buffer = NULL;
 
-	bes2600_info(BES2600_DBG_PM, "bes2600_wow_suspend enter\n");
+	bes_devel("bes2600_wow_suspend enter\n");
 
 	WARN_ON(!atomic_read(&hw_priv->num_vifs));
 
@@ -302,16 +303,16 @@ int bes2600_wow_suspend(struct ieee80211_hw *hw, struct cfg80211_wowlan *wowlan)
 		/* wait device enter lp mode */
 		if (wait_event_timeout(hw_priv->bes_power.dev_lp_wq,
 			bes2600_pwr_device_is_idle(hw_priv), HZ * 5) <= 0) {
-			bes2600_err(BES2600_DBG_PM, "wait device idle timeout\n");
+			bes_err("wait device idle timeout\n");
 			busy_event_buffer = kmalloc(4096, GFP_KERNEL);
 
 			if(!busy_event_buffer)
 				goto revert2;
 
 			if(bes2600_pwr_busy_event_record(hw_priv, busy_event_buffer, 4096) == 0) {
-				bes2600_info(BES2600_DBG_PM, "%s\n", busy_event_buffer);
+				bes_devel("%s\n", busy_event_buffer);
 			} else {
-				bes2600_err(BES2600_DBG_PM, "busy event show failed\n");
+				bes_err("busy event show failed\n");
 			}
 
 			kfree(busy_event_buffer);
@@ -353,7 +354,7 @@ int bes2600_wow_suspend(struct ieee80211_hw *hw, struct cfg80211_wowlan *wowlan)
 
 	/* Stop serving thread */
 	if (bes2600_bh_suspend(hw_priv)) {
-		bes2600_err(BES2600_DBG_PM, "%s: bes2600_bh_suspend failed\n",
+		bes_err("%s: bes2600_bh_suspend failed\n",
 				__func__);
 		bes2600_wow_resume(hw);
 		return -EBUSY;
@@ -361,7 +362,7 @@ int bes2600_wow_suspend(struct ieee80211_hw *hw, struct cfg80211_wowlan *wowlan)
 
 	/* Force resume if event is coming from the device. */
 	if (atomic_read(&hw_priv->bh_rx)) {
-		bes2600_info(BES2600_DBG_PM, "%s: incoming event present - resume\n",
+		bes_devel("%s: incoming event present - resume\n",
 				__func__);
 		bes2600_wow_resume(hw);
 		return -EAGAIN;
@@ -370,7 +371,7 @@ int bes2600_wow_suspend(struct ieee80211_hw *hw, struct cfg80211_wowlan *wowlan)
 	/* calculate the time consumed by bes2600 suspend flow */
 	end = jiffies;
 	diff = end - begin;
-	bes2600_info(BES2600_DBG_PM, "%s consume %d ms\n", __func__, jiffies_to_msecs(diff));
+	bes_devel("%s consume %d ms\n", __func__, jiffies_to_msecs(diff));
 
 	return 0;
 
@@ -503,7 +504,7 @@ int bes2600_wow_resume(struct ieee80211_hw *hw)
 	struct bes2600_vif *priv;
 	int i, ret = 0;
 
-	bes2600_info(BES2600_DBG_PM, "bes2600_wow_resume enter\n");
+	bes_devel("bes2600_wow_resume enter\n");
 	WARN_ON(!atomic_read(&hw_priv->num_vifs));
 
 	up(&hw_priv->scan.lock);

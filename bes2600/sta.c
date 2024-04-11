@@ -33,6 +33,7 @@
 #endif /* CONFIG_BES2600_TESTMODE */
 #include "net/mac80211.h"
 #include "bes_chardev.h"
+#include "bes_log.h"
 
 #include "epta_request.h"
 #include "epta_coex.h"
@@ -53,6 +54,7 @@
 #define WAPI_ENCRYPT_TAIL_SIZE  16
 #define MAX_ARP_REPLY_TEMPLATE_SIZE     120
 #define MAX_TCP_ALIVE_TEMPLATE_SIZE     256
+
 #ifdef CONFIG_BES2600_TESTMODE
 const int bes2600_1d_to_ac[8] = {
 	IEEE80211_AC_BE,
@@ -142,7 +144,7 @@ int bes2600_start(struct ieee80211_hw *dev)
 	struct bes2600_common *hw_priv = dev->priv;
 	int ret = 0;
 
-	bes2600_info(BES2600_DBG_STA, "bes2600_start\n");
+	bes_devel("bes2600_start\n");
 
 	if (!bes2600_chrdev_is_signal_mode()) {
 		return -1;
@@ -177,7 +179,7 @@ int bes2600_start(struct ieee80211_hw *dev)
 	coex_start(hw_priv);
 #endif
 
-	bes2600_info(BES2600_DBG_STA, "%s %pM.\n", __func__, hw_priv->mac_addr);
+	bes_devel("%s %pM.\n", __func__, hw_priv->mac_addr);
 	ret = bes2600_setup_mac(hw_priv);
 	if (WARN_ON(ret))
 		goto out;
@@ -200,7 +202,7 @@ void bes2600_stop(struct ieee80211_hw *dev)
 	LIST_HEAD(list);
 	int i;
 
-	bes2600_info(BES2600_DBG_STA, "bes2600_stop\n");
+	bes_devel("bes2600_stop\n");
 
 	atomic_dec(&hw_priv->netdevice_start);
 
@@ -249,7 +251,7 @@ void bes2600_stop(struct ieee80211_hw *dev)
 
 	/* HACK! */
 	if (atomic_xchg(&hw_priv->tx_lock, 1) != 1)
-		bes2600_dbg(BES2600_DBG_STA, "[STA] TX is force-unlocked "
+		bes_devel("[STA] TX is force-unlocked "
 			"due to stop request.\n");
 
 	bes2600_for_each_vif(hw_priv, priv, i) {
@@ -273,8 +275,6 @@ void bes2600_stop(struct ieee80211_hw *dev)
 
 	bes2600_wifi_stop(hw_priv);
 
-	tx_policy_deinit(hw_priv);
-
 	wsm_unlock_tx(hw_priv);
 
 	up(&hw_priv->conf_lock);
@@ -293,12 +293,11 @@ int bes2600_add_interface(struct ieee80211_hw *dev,
 	int i;
 
 	if (atomic_read(&hw_priv->num_vifs) >= CW12XX_MAX_VIFS) {
-		bes2600_err(BES2600_DBG_STA, "%s %d.",__func__, __LINE__);
+		bes_err("%s %d.",__func__, __LINE__);
 		return -EOPNOTSUPP;
 	}
 #endif
-	bes2600_err(BES2600_DBG_STA, " !!! %s: type %d p2p %d addr %pM\n",
-		__func__, vif->type, vif->p2p, vif->addr);
+	bes_devel(" !!! %s: type %d p2p %d addr %pM\n", __func__, vif->type, vif->p2p, vif->addr);
 
 	priv = cw12xx_get_vif_from_ieee80211(vif);
 	atomic_set(&priv->enabled, 0);
@@ -322,7 +321,7 @@ int bes2600_add_interface(struct ieee80211_hw *dev,
 			ETH_ALEN)) {
 			priv->if_id = 1;
 		}
-		bes2600_info(BES2600_DBG_STA, "%s: if_id %d mac %pM\n",
+		bes_devel("%s: if_id %d mac %pM\n",
 				__func__, priv->if_id, vif->addr);
 #else
 		for (i = 0; i < CW12XX_MAX_VIFS; i++)
@@ -353,7 +352,7 @@ int bes2600_add_interface(struct ieee80211_hw *dev,
 	WARN_ON(wsm_write_mib(hw_priv, WSM_MIB_ID_SET_AUTO_CALIBRATION_MODE,
 		&auto_calibration_mode, sizeof(auto_calibration_mode)));
 	*/
-	bes2600_info(BES2600_DBG_STA, "[STA] Interface ID:%d of type:%d added\n",
+	bes_devel("[STA] Interface ID:%d of type:%d added\n",
 		   priv->if_id, priv->mode);
 
 	up(&hw_priv->conf_lock);
@@ -377,13 +376,13 @@ void bes2600_remove_interface(struct ieee80211_hw *dev,
 	bool is_htcapie = false;
 	struct bes2600_vif *tmp_priv;
 
-	bes2600_info(BES2600_DBG_STA, " !!! %s: type %d p2p %d addr %pM\n",
+	bes_devel(" !!! %s: type %d p2p %d addr %pM\n",
 		__func__, vif->type, vif->p2p, vif->addr);
 	atomic_set(&priv->enabled, 0);
 	down(&hw_priv->scan.lock);
 	down(&hw_priv->conf_lock);
 	if (!__cw12xx_hwpriv_to_vifpriv(hw_priv, priv->if_id)) {
-		bes2600_info(BES2600_DBG_STA, " !!! %s: interface addr %pM already removed\n",
+		bes_devel(" !!! %s: interface addr %pM already removed\n",
 			     __func__, vif->addr);
 	        up(&hw_priv->conf_lock);
 	        up(&hw_priv->scan.lock);
@@ -428,11 +427,11 @@ void bes2600_remove_interface(struct ieee80211_hw *dev,
 		if (is_htcapie) {
 			hw_priv->vif0_throttle = CW12XX_HOST_VIF0_11N_THROTTLE;
 			hw_priv->vif1_throttle = CW12XX_HOST_VIF1_11N_THROTTLE;
-			bes2600_info(BES2600_DBG_STA, "AP REMOVE HTCAP 11N %d\n",hw_priv->vif0_throttle);
+			bes_devel("AP REMOVE HTCAP 11N %d\n",hw_priv->vif0_throttle);
 		} else {
 			hw_priv->vif0_throttle = CW12XX_HOST_VIF0_11BG_THROTTLE;
 			hw_priv->vif1_throttle = CW12XX_HOST_VIF1_11BG_THROTTLE;
-			bes2600_info(BES2600_DBG_STA, "AP REMOVE 11BG %d\n",hw_priv->vif0_throttle);
+			bes_devel("AP REMOVE 11BG %d\n",hw_priv->vif0_throttle);
 		}
 		bes2600_pwr_clear_busy_event(hw_priv, BES2600_JOIN_STATUS_AP);
 #ifdef BES2600_TX_RX_OPT
@@ -497,7 +496,7 @@ int bes2600_change_interface(struct ieee80211_hw *dev,
 				bool p2p)
 {
 	int ret = 0;
-	bes2600_info(BES2600_DBG_STA, " !!! %s: type %d (%d), p2p %d (%d)\n",
+	bes_devel(" !!! %s: type %d (%d), p2p %d (%d)\n",
 		__func__, new_type, vif->type, p2p, vif->p2p);
 	if (new_type != vif->type || vif->p2p != p2p) {
 		bes2600_remove_interface(dev, vif);
@@ -523,7 +522,7 @@ int bes2600_config(struct ieee80211_hw *dev, u32 changed)
 	int if_id = 0;
 	struct bes2600_vif *priv;
 
-	bes2600_info(BES2600_DBG_STA, "CONFIG CHANGED:	%08x\n", changed);
+	bes_devel("CONFIG CHANGED:	%08x\n", changed);
 
 	if (changed &
 		(IEEE80211_CONF_CHANGE_MONITOR|IEEE80211_CONF_CHANGE_IDLE)) {
@@ -532,7 +531,7 @@ int bes2600_config(struct ieee80211_hw *dev, u32 changed)
 		 * to determine for example whether to calculate
 		 * timestamps for packets or not, do not use instead
 		 * of filter flags! */
-		bes2600_info(BES2600_DBG_STA,
+		bes_devel(
 				"ignore IEEE80211_CONF_CHANGE_MONITOR (%d)"
 				"IEEE80211_CONF_CHANGE_IDLE (%d)\n",
 			(changed & IEEE80211_CONF_CHANGE_MONITOR) ? 1 : 0,
@@ -547,9 +546,9 @@ int bes2600_config(struct ieee80211_hw *dev, u32 changed)
 	/* TODO:COMBO:Change when support is available mac80211*/
 	if (changed & IEEE80211_CONF_CHANGE_POWER) {
 		/*hw_priv->output_power = conf->power_level;*/
-		bes2600_info(BES2600_DBG_STA, "Output power ++%d\n",conf->power_level);
+		bes_devel("Output power ++%d\n",conf->power_level);
 		hw_priv->output_power = 20;
-		bes2600_info(BES2600_DBG_STA, "Output power --%d\n",hw_priv->output_power);
+		bes_devel("Output power --%d\n",hw_priv->output_power);
 #ifdef CONFIG_BES2600_TESTMODE
 		/* Testing if Power Level to set is out of device power range */
 		if (conf->chandef.chan->band == NL80211_BAND_2GHZ) {
@@ -564,7 +563,7 @@ int bes2600_config(struct ieee80211_hw *dev, u32 changed)
 		else if (hw_priv->output_power < min_power_level)
 			hw_priv->output_power = min_power_level;
 #endif /* CONFIG_BES2600_TESTMODE */
-		bes2600_info(BES2600_DBG_STA, "[STA] TX power: %d\n",
+		bes_devel("[STA] TX power: %d\n",
 				hw_priv->output_power);
 		WARN_ON(wsm_set_output_power(hw_priv,
 					     hw_priv->output_power * 10,
@@ -575,7 +574,7 @@ int bes2600_config(struct ieee80211_hw *dev, u32 changed)
 		/* Switch Channel commented for CC Mode */
 		struct ieee80211_channel *ch = conf->chandef.chan;
 
-		bes2600_info(BES2600_DBG_STA, "[STA] Freq %d (wsm ch: %d, type: %d).\n",
+		bes_devel("[STA] Freq %d (wsm ch: %d, type: %d).\n",
 			   ch->center_freq, ch->hw_value,
 			   cfg80211_get_chandef_type(&conf->chandef));
 		/* Earlier there was a call to __bes2600_flush().
@@ -586,7 +585,7 @@ int bes2600_config(struct ieee80211_hw *dev, u32 changed)
 	}
 
 	if (changed & IEEE80211_CONF_CHANGE_RETRY_LIMITS) {
-		bes2600_info(BES2600_DBG_STA, "[STA] Retry limits: %d (long), %d (short).\n",
+		bes_devel("[STA] Retry limits: %d (long), %d (short).\n",
 			 conf->long_frame_max_tx_count,
 			 conf->short_frame_max_tx_count);
 		spin_lock_bh(&hw_priv->tx_policy_cache.lock);
@@ -731,7 +730,7 @@ u64 bes2600_prepare_multicast(struct ieee80211_hw *hw,
 	int count = 0;
 
 	if(priv == NULL){
-		bes2600_info(BES2600_DBG_STA, "wlan0 removed before p2p-device\n");
+		bes_devel("wlan0 removed before p2p-device\n");
 		return netdev_hw_addr_list_count(mc_list);
 	}
 
@@ -744,7 +743,7 @@ u64 bes2600_prepare_multicast(struct ieee80211_hw *hw,
 
 	/* Enable if requested */
 	netdev_hw_addr_list_for_each(ha, mc_list) {
-		bes2600_info(BES2600_DBG_STA, "[STA] multicast: %pM\n", ha->addr);
+		bes_devel("[STA] multicast: %pM\n", ha->addr);
 		memcpy(&priv->multicast_filter.macAddress[count],
 		       ha->addr, ETH_ALEN);
 		if (memcmp(ha->addr, broadcast_ipv4, ETH_ALEN) &&
@@ -916,7 +915,7 @@ int bes2600_set_key(struct ieee80211_hw *dev, enum set_key_cmd cmd,
 #endif
 	memset(&mgmt_policy, 0, sizeof(mgmt_policy));
 	down(&hw_priv->conf_lock);
-	bes2600_info(BES2600_DBG_STA, "%s, cmd:%d cipher:0x%08x idx:%d\n",
+	bes_devel("%s, cmd:%d cipher:0x%08x idx:%d\n",
 			__func__, cmd, key->cipher, key->keyidx);
 
 	if (cmd == SET_KEY) {
@@ -1130,7 +1129,7 @@ void bes2600_wep_key_work(struct work_struct *work)
 
 	BUG_ON(queueId >= 4);
 
-	bes2600_dbg(BES2600_DBG_STA, "[STA] Setting default WEP key: %d\n",
+	bes_devel("[STA] Setting default WEP key: %d\n",
 		priv->wep_default_key_id);
 	wsm_flush_tx(hw_priv);
 	WARN_ON(wsm_write_mib(hw_priv, WSM_MIB_ID_DOT11_WEP_DEFAULT_KEY_ID,
@@ -1149,12 +1148,12 @@ int bes2600_set_rts_threshold(struct ieee80211_hw *hw, u32 value)
 	struct bes2600_common *hw_priv = hw->priv;
 	int ret;
 	__le32 val32;
-	bes2600_dbg(BES2600_DBG_TXRX_OPT,"set RTS threshold = %d\n\r", hw_priv->rtsvalue);
+	bes_devel("set RTS threshold = %d\n\r", hw_priv->rtsvalue);
 
 	spin_lock(&hw_priv->rtsvalue_lock);
 	if (hw_priv->rtsvalue != value) {
 		hw_priv->rtsvalue = value;
-		//bes2600_dbg(BES2600_DBG_TXRX_OPT,"set RTS value = %d\n\r", hw_priv->rtsvalue);
+		//bes_devel("set RTS value = %d\n\r", hw_priv->rtsvalue);
 	} else {
 		spin_unlock(&hw_priv->rtsvalue_lock);
 		return 0;
@@ -1208,7 +1207,7 @@ int __bes2600_flush(struct bes2600_common *hw_priv, bool drop, int if_id)
 		}
 
 		if (!drop && unlikely(ret <= 0)) {
-			bes2600_err(BES2600_DBG_STA, "__bes2600_flush: ETIMEDOUT.....\n");
+			bes_err("__bes2600_flush: ETIMEDOUT.....\n");
 			ret = -ETIMEDOUT;
 			break;
 		} else {
@@ -1256,7 +1255,7 @@ void bes2600_flush(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 
 	/* no need to do the next work if queue was already clear */
 	if((ret == 0) && (hw_bufs_used == 0)) {
-		bes2600_info(BES2600_DBG_STA, "no need to flush\n");
+		bes_devel("no need to flush\n");
 		return;
 	}
 
@@ -1299,7 +1298,7 @@ int bes2600_remain_on_channel(struct ieee80211_hw *hw,
 	down(&hw_priv->conf_lock);
 
 
-	bes2600_info(BES2600_DBG_ROC, "ROC IN %d ch %d\n", priv->if_id, chan->hw_value);
+	bes_devel("ROC IN %d ch %d\n", priv->if_id, chan->hw_value);
 	hw_priv->roc_if_id = priv->if_id;
 	ret = WARN_ON(__bes2600_flush(hw_priv, false, if_id));
 	wsm_unlock_tx(hw_priv);
@@ -1318,7 +1317,7 @@ int bes2600_remain_on_channel(struct ieee80211_hw *hw,
 		bes2600_pwr_clear_busy_event(hw_priv, BES_PWR_LOCK_ON_ROC);
 	}
 
-	bes2600_info(BES2600_DBG_ROC, "ROC OUT %d\n", priv->if_id);
+	bes_devel("ROC OUT %d\n", priv->if_id);
 
 	/* set the channel to supplied ieee80211_channel pointer, if it
         is not set. This is to remove the crash while sending a probe res
@@ -1338,7 +1337,7 @@ int bes2600_cancel_remain_on_channel(struct ieee80211_hw *hw
 {
 	struct bes2600_common *hw_priv = hw->priv;
 
-	bes2600_info(BES2600_DBG_STA, "[STA] Cancel remain on channel\n");
+	bes_devel("[STA] Cancel remain on channel\n");
 
 	if (atomic_read(&hw_priv->remain_on_channel))
 		cancel_delayed_work_sync(&hw_priv->rem_chan_timeout);
@@ -1384,7 +1383,7 @@ void bes2600_event_handler(struct work_struct *work)
 	list_for_each_entry(event, &list, link) {
 		priv = __cw12xx_hwpriv_to_vifpriv(hw_priv, event->if_id);
 		if (!priv) {
-			bes2600_dbg(BES2600_DBG_STA, "[CQM] Event for non existing "
+			bes_devel("[CQM] Event for non existing "
 				   "interface, ignoring.\n");
 			continue;
 		}
@@ -1406,7 +1405,7 @@ void bes2600_event_handler(struct work_struct *work)
 				}
 				priv->bss_loss_status = BES2600_BSS_LOSS_CHECKING;
 				spin_unlock(&priv->bss_loss_lock);
-				bes2600_info(BES2600_DBG_STA, "[CQM] BSS lost.\n");
+				bes_devel("[CQM] BSS lost.\n");
 				bes2600_pwr_set_busy_event(hw_priv, BES_PWR_LOCK_ON_BSS_LOST);
 				cancel_delayed_work_sync(&priv->bss_loss_work);
 				cancel_delayed_work_sync(&priv->connection_loss_work);
@@ -1427,7 +1426,7 @@ void bes2600_event_handler(struct work_struct *work)
 			}
 			case WSM_EVENT_BSS_REGAINED:
 			{
-				bes2600_info(BES2600_DBG_STA, "[CQM] BSS regained.\n");
+				bes_devel("[CQM] BSS regained.\n");
 				priv->delayed_link_loss = 0;
 				spin_lock(&priv->bss_loss_lock);
 				priv->bss_loss_status = BES2600_BSS_LOSS_NONE;
@@ -1455,7 +1454,7 @@ void bes2600_event_handler(struct work_struct *work)
 				cqm_evt = (rcpi_rssi <= priv->cqm_rssi_thold) ?
 					NL80211_CQM_RSSI_THRESHOLD_EVENT_LOW :
 					NL80211_CQM_RSSI_THRESHOLD_EVENT_HIGH;
-				bes2600_info(BES2600_DBG_STA, "[CQM] RSSI event: %d.\n", rcpi_rssi);
+				bes_devel("[CQM] RSSI event: %d.\n", rcpi_rssi);
 				ieee80211_cqm_rssi_notify(priv->vif, cqm_evt, rcpi_rssi, GFP_KERNEL);
 				break;
 			}
@@ -1472,7 +1471,7 @@ void bes2600_event_handler(struct work_struct *work)
 				struct ieee80211_mgmt *deauth;
 				struct bes2600_link_entry *entry = NULL;
 
-				bes2600_info(BES2600_DBG_STA, "Inactivity Event Recieved for "
+				bes_devel("Inactivity Event Recieved for "
 						"link_id %d\n", link_id);
 				cw12xx_unmap_link(priv, link_id);
 
@@ -1490,13 +1489,13 @@ void bes2600_event_handler(struct work_struct *work)
 				deauth->u.deauth.reason_code = WLAN_REASON_DEAUTH_LEAVING;
 				deauth->seq_ctrl = 0;
 				ieee80211_rx_irqsafe(priv->hw, skb);
-				bes2600_info(BES2600_DBG_STA, " Inactivity Deauth Frame sent for MAC SA %pM \t and DA %pM\n", deauth->sa, deauth->da);
+				bes_devel(" Inactivity Deauth Frame sent for MAC SA %pM \t and DA %pM\n", deauth->sa, deauth->da);
 				queue_work(priv->hw_priv->workqueue, &priv->set_tim_work);
 				break;
 			}
 		case WSM_EVENT_PS_MODE_ERROR:
 			{
-				bes2600_err(BES2600_DBG_STA, " PS Mode Error, Reason:%u\n", event->evt.eventData);
+				bes_err("PS Mode Error, Reason:%u\n", event->evt.eventData);
 
 				if (event->evt.eventData != WSM_PS_ERROR_AP_NO_DATA_AFTER_TIM &&
 				    !priv->uapsd_info.uapsdFlags &&
@@ -1514,7 +1513,7 @@ void bes2600_event_handler(struct work_struct *work)
 					reason = event->evt.eventData & 0xFFFF;
 					src_port = event->evt.eventData >> 16;
 					src_port = __be16_to_cpu(src_port);
-					bes2600_info(BES2600_DBG_STA, "wifi wakeup, reason: %u, src_port: %u\n", reason, src_port);
+					bes_devel("wifi wakeup, reason: %u, src_port: %u\n", reason, src_port);
 					bes2600_chrdev_wifi_update_wakeup_reason(reason, src_port);
 					bes2600_chrdev_wakeup_by_event_set(WAKEUP_EVENT_NONE);
 				}
@@ -1561,7 +1560,7 @@ void bes2600_bss_loss_work(struct work_struct *work)
 	if (priv->bss_loss_status == BES2600_BSS_LOSS_CHECKING) {
 #ifdef BSS_LOSS_CHECK
 		spin_unlock(&priv->bss_loss_lock);
-		bes2600_info(BES2600_DBG_STA, "bl checking\n");
+		bes_devel("bl checking\n");
 		priv->cmq_tx_success_count = 0;
 		bl_ck_cnt = 0;
 		bl_cfm_cnt = 0;
@@ -1587,7 +1586,7 @@ void bes2600_bss_loss_work(struct work_struct *work)
 		/* succeeded to send last null frame */
 		bl_cfm_cnt = 0;
 		/* keep checking to wait bss regain*/
-		bes2600_info(BES2600_DBG_STA, "bl ck %d\n", bl_ck_cnt);
+		bes_devel("bl ck %d\n", bl_ck_cnt);
 		if (bl_ck_cnt++ < BSS_LOSS_CK_THR) {
 			spin_unlock(&priv->bss_loss_lock);
 			priv->bss_loss_status = BES2600_BSS_LOSS_CHECKING;
@@ -1614,12 +1613,12 @@ void bes2600_bss_loss_work(struct work_struct *work)
 		/* failed to send last null frame */
 		/* check if continous failures occur */
 		if (priv->cmq_tx_success_count != 0) {
-			bes2600_info(BES2600_DBG_STA, "bl reset ck cfm s_cnt=%d\n", priv->cmq_tx_success_count);
+			bes_devel("bl reset ck cfm s_cnt=%d\n", priv->cmq_tx_success_count);
 			bl_ck_cnt = 0;
 			bl_cfm_cnt = 0;
 			priv->cmq_tx_success_count = 0;
 		}
-		bes2600_info(BES2600_DBG_STA, "bl cfm %d\n", bl_cfm_cnt);
+		bes_devel("bl cfm %d\n", bl_cfm_cnt);
 		if (bl_cfm_cnt++ < BSS_LOSS_CFM_THR) {
 			spin_unlock(&priv->bss_loss_lock);
 			priv->bss_loss_status = BES2600_BSS_LOSS_CHECKING;
@@ -1645,7 +1644,7 @@ void bes2600_bss_loss_work(struct work_struct *work)
 
 report:
 	if (priv->cqm_beacon_loss_count) {
-		bes2600_info(BES2600_DBG_STA, "[CQM] Beacon loss.\n");
+		bes_devel("[CQM] Beacon loss.\n");
 		if (timeout <= 0)
 			timeout = 0;
 #if defined(CONFIG_BES2600_USE_STE_EXTENSIONS)
@@ -1672,7 +1671,7 @@ void bes2600_connection_loss_work(struct work_struct *work)
 				connection_loss_work.work);
 	struct bes2600_common *hw_priv = cw12xx_vifpriv_to_hwpriv(priv);
 
-	bes2600_info(BES2600_DBG_STA, "[CQM] Reporting connection loss.\n");
+	bes_devel("[CQM] Reporting connection loss.\n");
 	bes2600_pwr_clear_busy_event(priv->hw_priv, BES_PWR_LOCK_ON_BSS_LOST);
 	if(bes2600_suspend_status_get(hw_priv)) {
 		bes2600_pending_unjoin_set(hw_priv, priv->if_id);
@@ -1688,7 +1687,7 @@ void bes2600_tx_failure_work(struct work_struct *work)
 {
 	struct bes2600_vif *priv =
 		container_of(work, struct bes2600_vif, tx_failure_work);
-	bes2600_info(BES2600_DBG_STA, "[CQM] Reporting TX failure.\n");
+	bes_devel("[CQM] Reporting TX failure.\n");
 #if defined(CONFIG_BES2600_USE_STE_EXTENSIONS)
 	ieee80211_cqm_tx_fail_notify(priv->vif, GFP_KERNEL);
 #else /* CONFIG_BES2600_USE_STE_EXTENSIONS */
@@ -1783,8 +1782,8 @@ static int bes2600_parse_SDD_file(struct bes2600_common *hw_priv)
 			hw_priv->conf_listen_interval =
 				(*((u16 *)pElement->data+1) >> 7) & 0x1F;
 			hw_priv->is_BT_Present = true;
-			bes2600_dbg(BES2600_DBG_STA, "PTA element found.\n");
-			bes2600_dbg(BES2600_DBG_STA, "Listen Interval %d\n",
+			bes_devel("PTA element found.\n");
+			bes_devel("Listen Interval %d\n",
 						hw_priv->conf_listen_interval);
 		}
 		break;
@@ -1834,7 +1833,7 @@ static int bes2600_parse_SDD_file(struct bes2600_common *hw_priv)
 	}
 
 	if (hw_priv->is_BT_Present == false) {
-		bes2600_dbg(BES2600_DBG_STA, "PTA element NOT found.\n");
+		bes_devel("PTA element NOT found.\n");
 		hw_priv->conf_listen_interval = 0;
 	}
 #ifdef CONFIG_BES2600_TESTMODE
@@ -1844,7 +1843,7 @@ static int bes2600_parse_SDD_file(struct bes2600_common *hw_priv)
 		fe_cor_5G, NL80211_BAND_5GHZ);
 
 	for (i = 0; i < 2; ++i) {
-		bes2600_dbg(BES2600_DBG_TEST_MODE, "[STA] Power Values Read from SDD %s:"
+		bes_devel("[STA] Power Values Read from SDD %s:"
 			"min_power_level[%d]: %d max_power_level[%d]:"
 			"%d stepping[%d]: %d\n", __func__, i,
 			hw_priv->txPowerRange[i].min_power_level, i,
@@ -1853,16 +1852,16 @@ static int bes2600_parse_SDD_file(struct bes2600_common *hw_priv)
 	}
 
 
-	bes2600_dbg(BES2600_DBG_TEST_MODE, "%s output power before %d\n",__func__,hw_priv->output_power);
+	bes_devel("%s output power before %d\n",__func__,hw_priv->output_power);
         if (!hw_priv->output_power)
                 hw_priv->output_power=hw_priv->txPowerRange[NL80211_BAND_2GHZ].max_power_level;
 
-        bes2600_dbg(BES2600_DBG_TEST_MODE, "%s output power after %d\n",__func__,hw_priv->output_power);
+        bes_devel("%s output power after %d\n",__func__,hw_priv->output_power);
 #else
-        bes2600_dbg(BES2600_DBG_STA, "%s output power before %d\n",__func__,hw_priv->output_power);
+        bes_devel("%s output power before %d\n",__func__,hw_priv->output_power);
         if (!hw_priv->output_power)
                 hw_priv->output_power=20;
-        bes2600_dbg(BES2600_DBG_STA, "%s output power after %d\n",__func__,hw_priv->output_power);
+        bes_devel("%s output power after %d\n",__func__,hw_priv->output_power);
 #endif
 	return 0;
 
@@ -2018,7 +2017,7 @@ int bes2600_setup_mac(struct bes2600_common *hw_priv)
 			sdd_path, hw_priv->pdev);
 
 		if (unlikely(ret)) {
-			bes2600_dbg(BES2600_DBG_ERROR,
+			bes_devel(
 				"%s: can't load sdd file %s.\n",
 				__func__, sdd_path);
 			return ret;
@@ -2052,10 +2051,10 @@ static void bes2600_pending_offchanneltx_work(struct work_struct *work)
 
 	down(&hw_priv->conf_lock);
 
-	bes2600_dbg(BES2600_DBG_ROC, "OFFCHAN PEND IN\n");
+	bes_devel("OFFCHAN PEND IN\n");
 	bes2600_disable_listening(priv);
 	hw_priv->roc_if_id = -1;
-	bes2600_dbg(BES2600_DBG_ROC, "OFFCHAN PEND OUT\n");
+	bes_devel("OFFCHAN PEND OUT\n");
 
 	up(&hw_priv->scan.lock);
 	up(&hw_priv->conf_lock);
@@ -2074,7 +2073,7 @@ void bes2600_offchannel_work(struct work_struct *work)
 
 	if (unlikely(down_trylock(&hw_priv->scan.lock))) {
 		int ret = 0;
-		bes2600_dbg(BES2600_DBG_STA, "bes2600_offchannel_work***** drop frame\n");
+		bes_devel("bes2600_offchannel_work***** drop frame\n");
 #ifdef CONFIG_BES2600_TESTMODE
 		bes2600_queue_remove(hw_priv, queue,
 				hw_priv->pending_frame_id);
@@ -2082,13 +2081,13 @@ void bes2600_offchannel_work(struct work_struct *work)
 		ret = bes2600_queue_remove(queue, hw_priv->pending_frame_id);
 #endif
 		if (ret)
-			bes2600_err(BES2600_DBG_STA, "bes2600_offchannel_work: "
+			bes_err("bes2600_offchannel_work: "
 				       "queue_remove failed %d\n", ret);
 		wsm_unlock_tx(hw_priv);
 		return;
 	}
 	down(&hw_priv->conf_lock);
-	bes2600_dbg(BES2600_DBG_ROC, "OFFCHAN WORK IN %d\n", priv->if_id);
+	bes_devel("OFFCHAN WORK IN %d\n", priv->if_id);
 	hw_priv->roc_if_id = priv->if_id;
 	if (likely(!priv->join_status)) {
 		wsm_vif_flush_tx(priv);
@@ -2112,7 +2111,7 @@ void bes2600_offchannel_work(struct work_struct *work)
 
 	queue_delayed_work(hw_priv->workqueue,
 			&priv->pending_offchanneltx_work, 204 * HZ/1000);
-	bes2600_dbg(BES2600_DBG_ROC, "OFFCHAN WORK OUT %d\n", priv->if_id);
+	bes_devel("OFFCHAN WORK OUT %d\n", priv->if_id);
 	up(&hw_priv->conf_lock);
 	wsm_unlock_tx(hw_priv);
 }
@@ -2217,7 +2216,7 @@ void bes2600_join_work(struct work_struct *work)
 			priv->join_dtim_period = tim->dtim_period;
 		}
 		priv->beacon_int = bss->beacon_interval;
-		bes2600_info(BES2600_DBG_STA, "[STA] Join DTIM: %d, interval: %d\n",
+		bes_devel("[STA] Join DTIM: %d, interval: %d\n",
 				join.dtimPeriod, priv->beacon_int);
 
 		hw_priv->is_go_thru_go_neg = false;
@@ -2345,7 +2344,7 @@ void bes2600_join_timeout(struct work_struct *work)
 {
 	struct bes2600_vif *priv =
 		container_of(work, struct bes2600_vif, join_timeout.work);
-	bes2600_info(BES2600_DBG_STA, "[WSM] Issue unjoin command (TMO).\n");
+	bes_devel("[WSM] Issue unjoin command (TMO).\n");
 	bes2600_pwr_clear_busy_event(priv->hw_priv, BES_PWR_LOCK_ON_JOIN);
 	atomic_set(&priv->connect_in_process, 0);
 	wsm_lock_tx(priv->hw_priv);
@@ -2376,7 +2375,7 @@ void bes2600_unjoin_work(struct work_struct *work)
 				__func__);
 			wsm_unlock_tx(hw_priv);
 		} else {
-			bes2600_info(BES2600_DBG_AP, "delay unjoin work, scan:%d connect:%d\n",
+			bes_devel("delay unjoin work, scan:%d connect:%d\n",
 				atomic_read(&hw_priv->scan.in_progress), atomic_read(&priv->connect_in_process));
 			priv->delayed_unjoin = true;
 		}
@@ -2439,13 +2438,13 @@ void bes2600_unjoin_work(struct work_struct *work)
 		if (is_htcapie) {
 			hw_priv->vif0_throttle = CW12XX_HOST_VIF0_11N_THROTTLE;
 			hw_priv->vif1_throttle = CW12XX_HOST_VIF1_11N_THROTTLE;
-			bes2600_info(BES2600_DBG_STA, "UNJOIN HTCAP 11N %d\n",hw_priv->vif0_throttle);
+			bes_devel("UNJOIN HTCAP 11N %d\n",hw_priv->vif0_throttle);
 		} else {
 			hw_priv->vif0_throttle = CW12XX_HOST_VIF0_11BG_THROTTLE;
 			hw_priv->vif1_throttle = CW12XX_HOST_VIF1_11BG_THROTTLE;
-			bes2600_info(BES2600_DBG_STA, "UNJOIN 11BG %d\n",hw_priv->vif0_throttle);
+			bes_devel("UNJOIN 11BG %d\n",hw_priv->vif0_throttle);
 		}
-		bes2600_info(BES2600_DBG_STA, "[STA] Unjoin.\n");
+		bes_devel("[STA] Unjoin.\n");
 		priv->join_status = BES2600_JOIN_STATUS_PASSIVE;
 	}
 
@@ -2483,7 +2482,7 @@ int bes2600_enable_listening(struct bes2600_vif *priv,
 		priv->join_status = BES2600_JOIN_STATUS_MONITOR;
 
 	WARN_ON(priv->join_status > BES2600_JOIN_STATUS_MONITOR);
-	bes2600_info(BES2600_DBG_STA, "bes2600_enable_listening if_id:%d\n", priv->if_id);
+	bes_devel("bes2600_enable_listening if_id:%d\n", priv->if_id);
 	return wsm_start(hw_priv, &start, CW12XX_GENERIC_IF_ID);
 }
 
@@ -2503,7 +2502,7 @@ int bes2600_disable_listening(struct bes2600_vif *priv)
 
 	if (priv->hw_priv->roc_if_id == -1)
 		return 0;
-	bes2600_info(BES2600_DBG_STA, "bes2600_disable_listening if_id:%d\n", priv->if_id);
+	bes_devel("bes2600_disable_listening if_id:%d\n", priv->if_id);
 	ret = wsm_reset(priv->hw_priv, &reset, CW12XX_GENERIC_IF_ID);
 	return ret;
 }
@@ -2557,7 +2556,7 @@ void bes2600_ba_work(struct work_struct *work)
 	if (!priv->setbssparams_done)
 		return;*/
 
-	bes2600_info(BES2600_DBG_STA, "BA work****\n");
+	bes_devel("BA work****\n");
 	spin_lock_bh(&hw_priv->ba_lock);
 //	tx_ba_tid_mask = hw_priv->ba_ena ? hw_priv->ba_tid_mask : 0;
 	tx_ba_tid_mask = hw_priv->ba_tid_mask;
@@ -2607,7 +2606,7 @@ void bes2600_ba_timer(struct timer_list *t)
 			hw_priv->ba_ena = ba_ena;
 			hw_priv->ba_hist = 0;
 #if 0
-			bes2600_dbg(BES2600_DBG_STA, "[STA] %s block ACK:\n",
+			bes_devel("[STA] %s block ACK:\n",
 				ba_ena ? "enable" : "disable");
 			queue_work(hw_priv->workqueue, &hw_priv->ba_work);
 #endif
@@ -2671,7 +2670,7 @@ int bes2600_vif_setup(struct bes2600_vif *priv)
 	priv->broadcast_filter.filter_mode = WSM_FILTER_ACTION_FILTER_OUT;
 	priv->htcap = false;
 
-	bes2600_info(BES2600_DBG_STA, "%s: enabling priv\n", __func__);
+	bes_devel("%s: enabling priv\n", __func__);
 	atomic_set(&priv->enabled, 1);
 
 	spin_lock(&hw_priv->vif_list_lock);
@@ -2768,7 +2767,7 @@ void bes2600_rem_chan_timeout(struct work_struct *work)
 
 	down(&hw_priv->conf_lock);
 	if_id = hw_priv->roc_if_id;
-	bes2600_dbg(BES2600_DBG_ROC, "ROC TO IN %d\n", if_id);
+	bes_devel("ROC TO IN %d\n", if_id);
 	priv = __cw12xx_hwpriv_to_vifpriv(hw_priv, if_id);
 	ret = WARN_ON(__bes2600_flush(hw_priv, false, if_id));
 
@@ -2779,7 +2778,7 @@ void bes2600_rem_chan_timeout(struct work_struct *work)
 	atomic_set(&hw_priv->remain_on_channel, 0);
 	hw_priv->roc_if_id = -1;
 
-	bes2600_dbg(BES2600_DBG_ROC, "ROC TO OUT %d\n", if_id);
+	bes_devel("ROC TO OUT %d\n", if_id);
 
 	up(&hw_priv->conf_lock);
 	up(&hw_priv->scan.lock);
@@ -3054,7 +3053,7 @@ int bes2600_set_arpreply(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 
         template_frame = kzalloc(MAX_ARP_REPLY_TEMPLATE_SIZE, GFP_ATOMIC);
         if (!template_frame) {
-                bes2600_err(BES2600_DBG_STA, "[STA] Template frame memory failed\n");
+                bes_err("[STA] Template frame memory failed\n");
                 ret = -ENOMEM;
                 goto exit_p;
         }
@@ -3067,7 +3066,7 @@ int bes2600_set_arpreply(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 
         case WLAN_CIPHER_SUITE_WEP40:
         case WLAN_CIPHER_SUITE_WEP104:
-                bes2600_dbg(BES2600_DBG_STA, "[STA] WEP\n");
+                bes_devel("[STA] WEP\n");
                 encrypthdr = WEP_ENCRYPT_HDR_SIZE;
                 encrypttailsize = WEP_ENCRYPT_TAIL_SIZE;
                 encrypt = 1;
@@ -3075,21 +3074,21 @@ int bes2600_set_arpreply(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 
 
         case WLAN_CIPHER_SUITE_TKIP:
-                bes2600_dbg(BES2600_DBG_STA, "[STA] WPA\n");
+                bes_devel("[STA] WPA\n");
                 encrypthdr = WPA_ENCRYPT_HDR_SIZE;
                 encrypttailsize = WPA_ENCRYPT_TAIL_SIZE;
                 encrypt = 1;
                 break;
 
         case WLAN_CIPHER_SUITE_CCMP:
-                bes2600_dbg(BES2600_DBG_STA, "[STA] WPA2\n");
+                bes_devel("[STA] WPA2\n");
                 encrypthdr = WPA2_ENCRYPT_HDR_SIZE;
                 encrypttailsize = WPA2_ENCRYPT_TAIL_SIZE;
                 encrypt = 1;
                 break;
 
         case WLAN_CIPHER_SUITE_SMS4:
-                bes2600_dbg(BES2600_DBG_STA, "[STA] WAPI\n");
+                bes_devel("[STA] WAPI\n");
                 encrypthdr = WAPI_ENCRYPT_HDR_SIZE;
                 encrypttailsize = WAPI_ENCRYPT_TAIL_SIZE;
                 encrypt = 1;
@@ -3115,7 +3114,7 @@ int bes2600_set_arpreply(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
                 dot11hdr->frame_control |= cpu_to_le16(IEEE80211_FCTL_WEP);
 
         if (priv->vif->bss_conf.qos) {
-                bes2600_dbg(BES2600_DBG_STA, "[STA] QOS Enabled\n");
+                bes_devel("[STA] QOS Enabled\n");
                 dot11hdr->frame_control |= cpu_to_le16(IEEE80211_QOS_DATAGRP);
                  *(u16 *)(dot11hdr + 1) = 0x0;
                  framehdrlen += 2;
@@ -3188,7 +3187,7 @@ int bes2600_set_na(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 
 	template_frame = kzalloc(MAX_NEIGHBOR_ADVERTISEMENT_TEMPLATE_SIZE, GFP_ATOMIC);
 	if (!template_frame) {
-		bes2600_err(BES2600_DBG_STA, "[STA] Template frame memory failed\n");
+		bes_err("[STA] Template frame memory failed\n");
 		ret = -ENOMEM;
 		goto exit_p;
 	}
@@ -3201,7 +3200,7 @@ int bes2600_set_na(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 
 	case WLAN_CIPHER_SUITE_WEP40:
 	case WLAN_CIPHER_SUITE_WEP104:
-		bes2600_dbg(BES2600_DBG_STA, "[STA] WEP\n");
+		bes_devel("[STA] WEP\n");
 		encrypthdr = WEP_ENCRYPT_HDR_SIZE;
 		encrypttailsize = WEP_ENCRYPT_TAIL_SIZE;
 		encrypt = 1;
@@ -3209,21 +3208,21 @@ int bes2600_set_na(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 
 
 	case WLAN_CIPHER_SUITE_TKIP:
-		bes2600_dbg(BES2600_DBG_STA, "[STA] WPA\n");
+		bes_devel("[STA] WPA\n");
 		encrypthdr = WPA_ENCRYPT_HDR_SIZE;
 		encrypttailsize = WPA_ENCRYPT_TAIL_SIZE;
 		encrypt = 1;
 		break;
 
 	case WLAN_CIPHER_SUITE_CCMP:
-		bes2600_dbg(BES2600_DBG_STA, "[STA] WPA2\n");
+		bes_devel("[STA] WPA2\n");
 		encrypthdr = WPA2_ENCRYPT_HDR_SIZE;
 		encrypttailsize = WPA2_ENCRYPT_TAIL_SIZE;
 		encrypt = 1;
 		break;
 
 	case WLAN_CIPHER_SUITE_SMS4:
-		bes2600_dbg(BES2600_DBG_STA, "[STA] WAPI\n");
+		bes_devel("[STA] WAPI\n");
 		encrypthdr = WAPI_ENCRYPT_HDR_SIZE;
 		encrypttailsize = WAPI_ENCRYPT_TAIL_SIZE;
 		encrypt = 1;
@@ -3249,7 +3248,7 @@ int bes2600_set_na(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 		dot11hdr->frame_control |= cpu_to_le16(IEEE80211_FCTL_WEP);
 
 	if (priv->vif->bss_conf.qos) {
-		bes2600_dbg(BES2600_DBG_STA, "[STA] QOS Enabled\n");
+		bes_devel("[STA] QOS Enabled\n");
 		dot11hdr->frame_control |= cpu_to_le16(IEEE80211_QOS_DATAGRP);
 		/* Filling QOS Control Field */
 		 *(u16 *)(dot11hdr + 1) = 0x0;
@@ -3347,7 +3346,7 @@ static int bes2600_set_snap_frame(struct ieee80211_hw *hw,
 						sizeof(u8) * frame_len,
 						GFP_KERNEL);
 		if (priv->test_frame.data == NULL) {
-			bes2600_dbg(BES2600_DBG_TEST_MODE, "bes2600_set_snap_frame memory" \
+			bes_devel("bes2600_set_snap_frame memory" \
 					 "allocation failed");
 			priv->test_frame.len = 0;
 			return -EINVAL;
@@ -3424,7 +3423,7 @@ int bes2600_testmode_reply(struct wiphy *wiphy,
 	struct sk_buff *skb = cfg80211_testmode_alloc_reply_skb(wiphy,
 		nla_total_size(len));
 
-	bes2600_dbg(BES2600_DBG_TEST_MODE, "%s\n", __func__);
+	bes_devel("%s\n", __func__);
 	if (!skb)
 		return -ENOMEM;
 
@@ -3511,7 +3510,7 @@ int bes2600_get_tx_power_level(struct ieee80211_hw *hw)
 	struct bes2600_common *hw_priv = hw->priv;
 	int get_power = 0;
 	get_power = hw_priv->output_power;
-	bes2600_dbg(BES2600_DBG_TEST_MODE, "[STA] %s: Power set on Device : %d",
+	bes_devel("[STA] %s: Power set on Device : %d",
 		__func__, get_power);
 	return bes2600_testmode_reply(hw->wiphy, &get_power, sizeof(get_power));
 }
@@ -3859,7 +3858,7 @@ int bes2600_set_ip_offload(struct bes2600_common *hw_priv,
 
 	case WLAN_CIPHER_SUITE_WEP40:
 	case WLAN_CIPHER_SUITE_WEP104:
-		bes2600_dbg(BES2600_DBG_TEST_MODE, "[STA] WEP\n");
+		bes_devel("[STA] WEP\n");
 		encrypthdr = WEP_ENCRYPT_HDR_SIZE;
 		encrypttailsize = WEP_ENCRYPT_TAIL_SIZE;
 		encrypt = 1;
@@ -3867,7 +3866,7 @@ int bes2600_set_ip_offload(struct bes2600_common *hw_priv,
 		break;
 
 	case WLAN_CIPHER_SUITE_TKIP:
-		bes2600_dbg(BES2600_DBG_TEST_MODE, "[STA] WPA\n");
+		bes_devel("[STA] WPA\n");
 		encrypthdr = WPA_ENCRYPT_HDR_SIZE;
 		encrypttailsize = WPA_ENCRYPT_TAIL_SIZE;
 		encrypt = 1;
@@ -3875,7 +3874,7 @@ int bes2600_set_ip_offload(struct bes2600_common *hw_priv,
 		break;
 
 	case WLAN_CIPHER_SUITE_CCMP:
-		bes2600_dbg(BES2600_DBG_TEST_MODE, "[STA] WPA2\n");
+		bes_devel("[STA] WPA2\n");
 		encrypthdr = WPA2_ENCRYPT_HDR_SIZE;
 		encrypttailsize = WPA2_ENCRYPT_TAIL_SIZE;
 		encrypt = 1;
@@ -3883,7 +3882,7 @@ int bes2600_set_ip_offload(struct bes2600_common *hw_priv,
 		break;
 
 	case WLAN_CIPHER_SUITE_SMS4:
-		bes2600_dbg(BES2600_DBG_TEST_MODE, "[STA] WAPI\n");
+		bes_devel("[STA] WAPI\n");
 		encrypthdr = WAPI_ENCRYPT_HDR_SIZE;
 		encrypttailsize = WAPI_ENCRYPT_TAIL_SIZE;
 		encrypt = 1;

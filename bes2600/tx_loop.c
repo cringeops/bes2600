@@ -11,6 +11,7 @@
 #include "bes2600.h"
 #include "wsm.h"
 #include "queue.h"
+#include "bes_log.h"
 
 struct tx_loop_table
 {
@@ -44,7 +45,7 @@ struct sk_buff *bes2600_tx_loop_read(struct bes2600_common *hw_priv)
 	skb = skb_dequeue(&hw_priv->tx_loop.rx_queue);
         if(skb != NULL) {
                 wsm = (struct wsm_hdr *)skb->data;
-                bes2600_dbg(BES2600_DBG_TXLOOP, "tx loop pipe read msg_id:0x%04x seq:%d\n",
+                bes_devel("tx loop pipe read msg_id:0x%04x seq:%d\n",
                                 WSM_MSG_ID_GET(wsm->id), WSM_MSG_SEQ_GET(wsm->id));
         }
 
@@ -53,7 +54,7 @@ struct sk_buff *bes2600_tx_loop_read(struct bes2600_common *hw_priv)
 
 static void bes2600_tx_loop_item_pending_item(struct bes2600_common *hw_priv, struct sk_buff *skb)
 {
-        bes2600_info(BES2600_DBG_TXLOOP, "tx loop confirm pending skb.\n");
+        bes_devel("tx loop confirm pending skb.\n");
         bes2600_tx_loop_build_lmac_tx_cfm(hw_priv, skb->data, skb->data_len);
 }
 
@@ -91,10 +92,10 @@ void bes2600_tx_loop_set_enable(struct bes2600_common *hw_priv, bool need_warn)
                 if(cmd_id == 0x0005 || cmd_id == 0x0006){
                         struct wsm_mib *mib = (struct wsm_mib *)hw_priv->wsm_cmd.arg;
                         u16 mib_id = mib->mibId;
-                        bes2600_info(BES2600_DBG_TXLOOP, "pending cmd:0x%04x seq:%d mib_id:0x%04x\n",
+                        bes_devel("pending cmd:0x%04x seq:%d mib_id:0x%04x\n",
                                                         cmd_id, WSM_MSG_SEQ_GET(tx_wsm->id), mib_id);
                 } else {
-                        bes2600_info(BES2600_DBG_TXLOOP, "pending cmd:0x%04x seq:%d\n",
+                        bes_devel("pending cmd:0x%04x seq:%d\n",
                                                         cmd_id, WSM_MSG_SEQ_GET(tx_wsm->id));
                 }
 
@@ -131,11 +132,11 @@ static void bes2600_tx_loop_build_lmac_generic_cfm(struct bes2600_common *hw_pri
 
         out_skb = dev_alloc_skb(msg_len);
         if(IS_ERR_OR_NULL(out_skb)) {
-                bes2600_err(BES2600_DBG_TXLOOP, "%s, alloc mem fail.\n", __func__);
+                bes_err("%s, alloc mem fail.\n", __func__);
                 return;
         }
 
-        bes2600_dbg(BES2600_DBG_TXLOOP, "%s cmd 0x%04x len:%d\n",
+        bes_devel("%s cmd 0x%04x len:%d\n",
                                 __func__, (tx_wsm->id & WSM_MSG_ID_MASK), msg_len);
         skb_put(out_skb, msg_len);
         rx_wsm = (struct wsm_hdr *)out_skb->data;
@@ -167,11 +168,11 @@ static void bes2600_tx_loop_build_lmac_tx_cfm(struct bes2600_common *hw_priv, u8
 
         out_skb = dev_alloc_skb(msg_len);
         if(IS_ERR_OR_NULL(out_skb)) {
-                bes2600_err(BES2600_DBG_TXLOOP, "%s, alloc mem fail.\n", __func__);
+                bes_err("%s, alloc mem fail.\n", __func__);
                 return;
         }
 
-        bes2600_dbg(BES2600_DBG_TXLOOP, "%s cmd 0x%04x len:%d\n",
+        bes_devel("%s cmd 0x%04x len:%d\n",
                                 __func__, (tx_wsm->hdr.id & WSM_MSG_ID_MASK), msg_len);
         skb_put(out_skb, msg_len);
         rx_wsm = (struct wsm_hdr *)out_skb->data;
@@ -208,11 +209,11 @@ static void bes2600_tx_loop_build_config_cfm(struct bes2600_common *hw_priv, u8 
 
         out_skb = dev_alloc_skb(msg_len);
         if(IS_ERR_OR_NULL(out_skb)) {
-                bes2600_err(BES2600_DBG_TXLOOP, "%s, alloc mem fail.\n", __func__);
+                bes_err("%s, alloc mem fail.\n", __func__);
                 return;
         }
 
-        bes2600_dbg(BES2600_DBG_TXLOOP, "%s cmd 0x%04x len:%d\n",
+        bes_devel("%s cmd 0x%04x len:%d\n",
                                 __func__, (tx_wsm->id & WSM_MSG_ID_MASK), msg_len);
         skb_put(out_skb, msg_len);
         rx_wsm = (struct wsm_hdr *)out_skb->data;
@@ -244,11 +245,11 @@ static void bes2600_tx_loop_build_read_mib_cfm(struct bes2600_common *hw_priv, u
 
         out_skb = dev_alloc_skb(msg_len);
         if(IS_ERR_OR_NULL(out_skb)) {
-                bes2600_err(BES2600_DBG_TXLOOP, "%s, alloc mem fail.\n", __func__);
+                bes_err("%s, alloc mem fail.\n", __func__);
                 return;
         }
 
-        bes2600_dbg(BES2600_DBG_TXLOOP, "%s cmd 0x%04x len:%d\n",
+        bes_devel("%s cmd 0x%04x len:%d\n",
                                 __func__, (tx_wsm->id & WSM_MSG_ID_MASK), msg_len);
         skb_put(out_skb, msg_len);
         rx_wsm = (struct wsm_hdr *)out_skb->data;
@@ -285,11 +286,11 @@ static void bes2600_tx_loop_build_join_cfm(struct bes2600_common *hw_priv, u8 *b
 
         out_skb = dev_alloc_skb(msg_len);
         if(IS_ERR_OR_NULL(out_skb)) {
-                bes2600_err(BES2600_DBG_TXLOOP, "%s, alloc mem fail.\n", __func__);
+                bes_err("%s, alloc mem fail.\n", __func__);
                 return;
         }
 
-        bes2600_dbg(BES2600_DBG_TXLOOP, "%s cmd 0x%04x len:%d\n",
+        bes_devel("%s cmd 0x%04x len:%d\n",
                                 __func__, (tx_wsm->id & WSM_MSG_ID_MASK), msg_len);
         skb_put(out_skb, msg_len);
         rx_wsm = (struct wsm_hdr *)out_skb->data;
@@ -318,11 +319,11 @@ static void bes2600_tx_loop_build_rfcmd_cfm(struct bes2600_common *hw_priv, u8 *
 
         out_skb = dev_alloc_skb(msg_len);
         if(IS_ERR_OR_NULL(out_skb)) {
-                bes2600_err(BES2600_DBG_TXLOOP, "%s, alloc mem fail.\n", __func__);
+                bes_err("%s, alloc mem fail.\n", __func__);
                 return;
         }
 
-        bes2600_dbg(BES2600_DBG_TXLOOP, "%s cmd 0x%04x len:%d\n",
+        bes_devel("%s cmd 0x%04x len:%d\n",
                                         __func__, (tx_wsm->id & WSM_MSG_ID_MASK), msg_len);
         skb_put(out_skb, msg_len);
         rx_wsm = (struct wsm_mcu_hdr *)out_skb->data;
@@ -351,11 +352,11 @@ static void bes2600_tx_loop_build_driver_cmd_cfm(struct bes2600_common *hw_priv,
 
         out_skb = dev_alloc_skb(msg_len);
         if(IS_ERR_OR_NULL(out_skb)) {
-                bes2600_err(BES2600_DBG_TXLOOP, "%s, alloc mem fail.\n", __func__);
+                bes_err("%s, alloc mem fail.\n", __func__);
                 return;
         }
 
-        bes2600_dbg(BES2600_DBG_TXLOOP, "%s cmd 0x%04x len:%d\n",
+        bes_devel("%s cmd 0x%04x len:%d\n",
                                         __func__, (tx_wsm->id & WSM_MSG_ID_MASK), msg_len);
         skb_put(out_skb, msg_len);
         rx_wsm = (struct wsm_mcu_hdr *)out_skb->data;
@@ -412,11 +413,11 @@ static void bes2600_tx_loop_build_scan_compl_ind(struct bes2600_common *hw_priv)
 
         out_skb = dev_alloc_skb(msg_len);
         if(IS_ERR_OR_NULL(out_skb)) {
-                bes2600_info(BES2600_DBG_TXLOOP, "%s, alloc mem fail.\n", __func__);
+                bes_devel("%s, alloc mem fail.\n", __func__);
                 return;
         }
 
-        bes2600_dbg(BES2600_DBG_TXLOOP, "%s len:%d\n", __func__, msg_len);
+        bes_devel("%s len:%d\n", __func__, msg_len);
         skb_put(out_skb, msg_len);
         rx_wsm = (struct wsm_hdr *)out_skb->data;
         msg_id |= 0x806;        // set indication flag
@@ -447,11 +448,11 @@ static void bes2600_tx_loop_build_pm_ind(struct bes2600_common *hw_priv)
 
         out_skb = dev_alloc_skb(msg_len);
         if(IS_ERR_OR_NULL(out_skb)) {
-                bes2600_info(BES2600_DBG_TXLOOP, "%s, alloc mem fail.\n", __func__);
+                bes_devel("%s, alloc mem fail.\n", __func__);
                 return;
         }
 
-        bes2600_dbg(BES2600_DBG_TXLOOP, "%s len:%d\n", __func__, msg_len);
+        bes_devel("%s len:%d\n", __func__, msg_len);
         skb_put(out_skb, msg_len);
         rx_wsm = (struct wsm_hdr *)out_skb->data;
         msg_id |= 0x809;        // set indication flag
@@ -481,11 +482,11 @@ static void bes2600_tx_loop_build_rfcmd_ind(struct bes2600_common *hw_priv, u8 *
 
         out_skb = dev_alloc_skb(msg_len);
         if(IS_ERR_OR_NULL(out_skb)) {
-                bes2600_err(BES2600_DBG_TXLOOP, "%s, alloc mem fail.\n", __func__);
+                bes_err("%s, alloc mem fail.\n", __func__);
                 return;
         }
 
-        bes2600_dbg(BES2600_DBG_TXLOOP, "%s len:%d\n",__func__, msg_len);
+        bes_devel("%s len:%d\n",__func__, msg_len);
         skb_put(out_skb, msg_len);
         rx_wsm = (struct wsm_mcu_hdr *)out_skb->data;
         msg_id = (tx_wsm->id & WSM_MSG_ID_MASK);
@@ -514,7 +515,7 @@ void bes2600_tx_loop_pipe_send(struct bes2600_common *hw_priv, u8 *buf, u32 len)
         if(hw_priv == NULL)
                 return;
 
-        bes2600_dbg(BES2600_DBG_TXLOOP, "tx loop pipe send cmd:0x%04x seq:%d\n",
+        bes_devel("tx loop pipe send cmd:0x%04x seq:%d\n",
                                                 cmd_id, WSM_MSG_SEQ_GET(tx_wsm->id));
 
         /* select build confirm function based on command id */

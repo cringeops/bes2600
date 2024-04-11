@@ -25,7 +25,6 @@
 #include "debug.h"
 #include "sta.h"
 #include "sbus.h"
-#include "bes2600_log.h"
 #include "bes_pwr.h"
 #include "txrx_opt.h"
 
@@ -101,7 +100,7 @@ void bes2600_add_tx_ac_delta_time(int ac, uint32_t del_time)
 	if (tx_queue_arr[ac] >= (TX_AVG_TIME_COUNT - 1)) {
 		static int num = 0;
 		if ((num ++ % 10) == 0)
-			bes2600_info(BES2600_DBG_TXRX_LVL, "%s %d %d %d %d %d del=%d\n\r", __func__, tx_delta_time_arr[ac][0],
+			bes_devel( "%s %d %d %d %d %d del=%d\n\r", __func__, tx_delta_time_arr[ac][0],
 				     tx_delta_time_arr[ac][2],  tx_delta_time_arr[ac][4],  tx_delta_time_arr[ac][6],
 				     tx_delta_time_arr[ac][8], del_time);
 	}
@@ -133,7 +132,7 @@ static int bes2600_enable_tx_shortgi(struct bes2600_common *hw_priv,
 	int ret = 0;
 	static u8 en = 0xff;
 
-	bes2600_dbg(BES2600_DBG_TXRX_OPT, "%s onoff=%d\n\r", __func__, onoff);
+	bes_devel( "%s onoff=%d\n\r", __func__, onoff);
 
 	if (en != onoff) {
 		en = onoff;
@@ -191,7 +190,7 @@ static int bes2600_set_high_edca_params(struct bes2600_common *hw_priv, struct b
 	struct wsm_edca_params arg;
 	int i = 0;
 	static int lev = 0;
-	bes2600_dbg(BES2600_DBG_TXRX_OPT, "set edca level=%d\n\r", level);
+	bes_devel( "set edca level=%d\n\r", level);
 
 	if (lev == level)
 		return 0;
@@ -245,7 +244,7 @@ static int bes2600_set_high_edca_params(struct bes2600_common *hw_priv, struct b
 }
 void bes2600_set_default_params(struct bes2600_common *hw_priv, struct bes2600_vif *priv)
 {
-	bes2600_dbg(BES2600_DBG_TXRX_OPT, "set edca default\n\r");
+	bes_devel( "set edca default\n\r");
 	wsm_set_edca_params(hw_priv, &priv->edca, priv->if_id);
 }
 static void bes2600_set_cca_method(struct bes2600_common *hw_priv, struct bes2600_vif *priv, int value)
@@ -272,7 +271,7 @@ static int bes2600_update_pwr_table(struct bes2600_common *hw_priv,
 					    (u8 *)&cur_pwr_tbl_idx,
 					    sizeof(cur_pwr_tbl_idx),
 					    priv->if_id));
-		bes2600_info(BES2600_DBG_TXRX_OPT, "%s pwr_tbl_idx=%d\n\r", __func__, pwr_tbl_idx);
+		bes_devel( "%s pwr_tbl_idx=%d\n\r", __func__, pwr_tbl_idx);
 	}
 	return ret;
 }
@@ -337,7 +336,7 @@ void bes2600_dynamic_opt_rxtx(struct bes2600_common *hw_priv, struct bes2600_vif
 	rx_cnt = (priv->dot11ReceivedFragmentCount - l_rx_cnt);
 	( (tx_cnt + tx_retry) > 0 ) ? (succPro = tx_cnt * 100 / (tx_cnt + tx_retry)) : (succPro = 0);
 
-	bes2600_dbg(BES2600_DBG_TXRX_OPT, "%s, tx_cnt:%d prob:%d\n", __func__, tx_cnt, succPro);
+	bes_devel( "%s, tx_cnt:%d prob:%d\n", __func__, tx_cnt, succPro);
 
 	/* set rts/cts protection dynamically */
 	if (tx_cnt > 50 && succPro != 0) {
@@ -395,10 +394,10 @@ void bes2600_dynamic_opt_rxtx(struct bes2600_common *hw_priv, struct bes2600_vif
 	if (level > TXRX_OPT_EDCA_MAX_LEVEL)
 		level = TXRX_OPT_EDCA_MAX_LEVEL;
 
-	bes2600_dbg(BES2600_DBG_TXRX_OPT, "txrx_opt: tx(cnt=%d retry=%d psr=%d tx_fail=%d (wsm level=%d) tx=%dk/s)\n\r",
+	bes_devel( "txrx_opt: tx(cnt=%d retry=%d psr=%d tx_fail=%d (wsm level=%d) tx=%dk/s)\n\r",
 	       tx_cnt, tx_retry, succPro, tx_fail, level, tx_bps / 128);
-	bes2600_dbg(BES2600_DBG_TXRX_OPT, "txrx_opt: rx(cnt=%d  rx=%dk/s) total=%dk/s\n\r", rx_cnt, rx_bps / 128, total_kbps);
-	bes2600_dbg(BES2600_DBG_TXRX_OPT, "txrx_opt: tx_delta_time=%d [%d %d %d %d] hw_value=%d ht=%d maxtxcnt=%d\n\r",
+	bes_devel( "txrx_opt: rx(cnt=%d  rx=%dk/s) total=%dk/s\n\r", rx_cnt, rx_bps / 128, total_kbps);
+	bes_devel( "txrx_opt: tx_delta_time=%d [%d %d %d %d] hw_value=%d ht=%d maxtxcnt=%d\n\r",
 	       bes2600_get_tx_delta_time(), bes2600_get_tx_ac_delta_time(0), bes2600_get_tx_ac_delta_time(1),
 	       bes2600_get_tx_ac_delta_time(2), bes2600_get_tx_ac_delta_time(3), priv->hw_value,
 	       bes2600_station_is_ap_ht40(hw_priv), hw_priv->long_frame_max_tx_count);
@@ -445,7 +444,7 @@ void bes2600_txrx_opt_timer_restore(void)
 
 static void txrx_opt_timer_callback(struct timer_list* data)
 {
-	bes2600_dbg(BES2600_DBG_TXRX, "####Timer callback function Called time = %lu\n", jiffies);
+	bes_devel( "####Timer callback function Called time = %lu\n", jiffies);
 	queue_work(txrx_hw_priv->workqueue, &txrx_hw_priv->dynamic_opt_txrx_work);
 }
 
@@ -486,10 +485,10 @@ static int bes2600_set_txrx_opt_default_param(struct bes2600_common * hw_priv)
 			 sta->deflink.ht_cap.cap & IEEE80211_HT_CAP_SGI_20) ||
 			(priv->vif->bss_conf.chandef.width == NL80211_CHAN_WIDTH_40 &&
 			 sta->deflink.ht_cap.cap & IEEE80211_HT_CAP_SGI_40))) {
-			bes2600_info(BES2600_DBG_TXRX, "open short gi tx\n");
+			bes_devel( "open short gi tx\n");
 			bes2600_enable_tx_shortgi(hw_priv, priv, 1);
 		} else {
-			bes2600_info(BES2600_DBG_TXRX, "close short gi tx\n");
+			bes_devel( "close short gi tx\n");
 			bes2600_enable_tx_shortgi(hw_priv, priv, 0);
 		}
 	}
@@ -519,7 +518,7 @@ void bes2600_txrx_opt_multivif_connected_handler(struct bes2600_common *hw_priv,
 	if (multivif_connected) {
 		bes2600_set_txrx_opt_default_param(hw_priv);
 	} else {
-		bes2600_dbg(BES2600_DBG_STA, "%s, rssi:%d\n", __func__, priv->signal);
+		bes_devel("%s, rssi:%d\n", __func__, priv->signal);
 		bes2600_dynamic_opt_rxtx(hw_priv, priv, priv->signal);
 		mod_timer(&hw_priv->txrx_opt_timer, jiffies + msecs_to_jiffies(TXRX_OPT_PEROID));
 	}
@@ -528,13 +527,13 @@ void bes2600_txrx_opt_multivif_connected_handler(struct bes2600_common *hw_priv,
 int txrx_opt_timer_init(struct bes2600_vif *priv)
 {
 	struct bes2600_common *hw_priv = cw12xx_vifpriv_to_hwpriv(priv);
-	bes2600_info(BES2600_DBG_TXRX_OPT, "txrx_opt_timer_init:%p", txrx_hw_priv);
+	bes_devel( "txrx_opt_timer_init:%p", txrx_hw_priv);
 	if (priv->if_id != 0)
 		return 0;
 
 	if (!txrx_hw_priv) {
 		txrx_hw_priv = hw_priv;
-		bes2600_info(BES2600_DBG_TXRX, "####Timer init hw_priv = %p\n", txrx_hw_priv);
+		bes_devel( "####Timer init hw_priv = %p\n", txrx_hw_priv);
 		timer_setup(&hw_priv->txrx_opt_timer, txrx_opt_timer_callback, 0);
 		bes2600_set_txrx_opt_default_param(hw_priv);
 	}
@@ -548,7 +547,7 @@ int txrx_opt_timer_init(struct bes2600_vif *priv)
 void txrx_opt_timer_exit(struct bes2600_vif *priv)
 {
 	struct bes2600_common *hw_priv = cw12xx_vifpriv_to_hwpriv(priv);
-	bes2600_info(BES2600_DBG_TXRX_OPT, "txrx_opt_timer_exit");
+	bes_devel( "txrx_opt_timer_exit");
 
 	if (priv->if_id == 0) {
 		del_timer_sync(&hw_priv->txrx_opt_timer);

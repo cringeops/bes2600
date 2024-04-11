@@ -24,6 +24,7 @@
 #include "bes_chardev.h"
 #include "txrx_opt.h"
 #include "sta.h"
+#include "bes_log.h"
 
 static int bes2600_bh(void *arg);
 
@@ -72,7 +73,7 @@ int bes2600_register_bh(struct bes2600_common *hw_priv)
 
 	INIT_WORK(&hw_priv->bh_work, bes2600_bh_work);
 
-	bes2600_info(BES2600_DBG_BH, "[BH] register.\n");
+	bes_devel("[BH] register.\n");
 
 #ifdef WIFI_BT_COEXIST_EPTA_ENABLE
 #ifdef WIFI_BT_COEXIST_EPTA_FDD
@@ -109,19 +110,19 @@ void bes2600_unregister_bh(struct bes2600_common *hw_priv)
 	destroy_workqueue(hw_priv->bh_workqueue);
 	hw_priv->bh_workqueue = NULL;
 
-	bes2600_info(BES2600_DBG_BH, "[BH] unregistered.\n");
+	bes_devel("[BH] unregistered.\n");
 }
 
 void bes2600_irq_handler(struct bes2600_common *hw_priv)
 {
-	bes2600_dbg(BES2600_DBG_BH, "[BH] irq.\n");
+	bes_devel("[BH] irq.\n");
 	if(!hw_priv) {
-		bes2600_warn(BES2600_DBG_BH, "%s hw private data is null", __func__);
+		bes_warn("%s hw private data is null\n", __func__);
 		return;
 	}
 
 	if (hw_priv->bh_error) {
-		bes2600_err(BES2600_DBG_BH, "%s bh error", __func__);
+		bes_err("%s bh error\n", __func__);
 		return;
 	}
 
@@ -132,7 +133,7 @@ EXPORT_SYMBOL(bes2600_irq_handler);
 
 void bes2600_bh_wakeup(struct bes2600_common *hw_priv)
 {
-	bes2600_dbg(BES2600_DBG_BH,  "[BH] wakeup.\n");
+	bes_devel("[BH] wakeup.\n");
 	if (WARN_ON(hw_priv->bh_error))
 		return;
 
@@ -148,7 +149,7 @@ int bes2600_bh_suspend(struct bes2600_common *hw_priv)
 	struct bes2600_vif *priv = NULL;
 #endif
 
-	bes2600_dbg(BES2600_DBG_BH, "[BH] suspend.\n");
+	bes_devel("[BH] suspend.\n");
 	if (hw_priv->bh_error) {
 		wiphy_warn(hw_priv->hw->wiphy, "BH error -- can't suspend\n");
 		return -EINVAL;
@@ -184,7 +185,7 @@ int bes2600_bh_resume(struct bes2600_common *hw_priv)
 	struct bes2600_vif *priv = NULL;
 #endif
 
-	bes2600_dbg(BES2600_DBG_BH, "[BH] resume.\n");
+	bes_devel("[BH] resume.\n");
 	if (hw_priv->bh_error) {
 		wiphy_warn(hw_priv->hw->wiphy, "BH error -- can't resume\n");
 		return -EINVAL;
@@ -204,7 +205,7 @@ int bes2600_bh_resume(struct bes2600_common *hw_priv)
 				&& (priv->multicast_filter.enable)) {
 			u8 count = 0;
 			WARN_ON(wsm_request_buffer_request(priv, &count));
-			bes2600_dbg(BES2600_DBG_BH, "[BH] BH resume. Reclaim Buff %d \n",count);
+			bes_devel("[BH] BH resume. Reclaim Buff %d \n",count);
 			break;
 		}
 	}
@@ -271,7 +272,7 @@ int wsm_release_buffer_to_fw(struct bes2600_vif *priv, int count)
 		return 0;
 	}
 #endif
-	bes2600_dbg(BES2600_DBG_BH, "Rel buffer to FW %d, %d\n", count, hw_priv->hw_bufs_used);
+	bes_devel("Rel buffer to FW %d, %d\n", count, hw_priv->hw_bufs_used);
 
 	for (i = 0; i < count; i++) {
 		if ((hw_priv->hw_bufs_used + 1) < hw_priv->wsm_caps.numInpChBufs) {
@@ -291,7 +292,7 @@ int wsm_release_buffer_to_fw(struct bes2600_vif *priv, int count)
 			wsm->id |= cpu_to_le32(
 				WSM_TX_SEQ(hw_priv->wsm_tx_seq[WSM_TXRX_SEQ_IDX(wsm->id)]));
 
-			bes2600_dbg(BES2600_DBG_BH, "REL %d\n", hw_priv->wsm_tx_seq[WSM_TXRX_SEQ_IDX(wsm->id)]);
+			bes_devel("REL %d\n", hw_priv->wsm_tx_seq[WSM_TXRX_SEQ_IDX(wsm->id)]);
 			if (WARN_ON(bes2600_data_write(hw_priv,
 				buf->begin, buf_len))) {
 				break;
@@ -308,7 +309,7 @@ int wsm_release_buffer_to_fw(struct bes2600_vif *priv, int count)
 	}
 
 	/* Should not be here */
-	bes2600_err(BES2600_DBG_BH, "[BH] Less HW buf %d,%d.\n", hw_priv->hw_bufs_used,
+	bes_devel("[BH] Less HW buf %d,%d.\n", hw_priv->hw_bufs_used,
 			hw_priv->wsm_caps.numInpChBufs);
 	WARN_ON(1);
 
@@ -359,7 +360,7 @@ static int bes2600_bh_read_ctrl_reg(struct bes2600_common *hw_priv,
 		ret = bes2600_reg_read_16(hw_priv,
 				ST90TDS_CONTROL_REG_ID, ctrl_reg);
 		if (ret)
-			bes2600_err(BES2600_DBG_BH, "[BH] Failed to read control register.\n");
+			bes_err("[BH] Failed to read control register.\n");
 	}
 
 	return ret;
@@ -370,7 +371,7 @@ static int bes2600_device_wakeup(struct bes2600_common *hw_priv)
 	u16 ctrl_reg;
 	int ret;
 
-	bes2600_dbg(BES2600_DBG_BH, "[BH] Device wakeup.\n");
+	bes_devel("[BH] Device wakeup.\n");
 
 	/* To force the device to be always-on, the host sets WLAN_UP to 1 */
 	ret = bes2600_reg_write_16(hw_priv, ST90TDS_CONTROL_REG_ID,
@@ -385,7 +386,7 @@ static int bes2600_device_wakeup(struct bes2600_common *hw_priv)
 	/* If the device returns WLAN_RDY as 1, the device is active and will
 	 * remain active. */
 	if (ctrl_reg & ST90TDS_CONT_RDY_BIT) {
-		bes2600_dbg(BES2600_DBG_BH, "[BH] Device awake.\n");
+		bes_devel("[BH] Device awake.\n");
 		return 1;
 	}
 
@@ -398,8 +399,7 @@ static int bes2600_device_wakeup(struct bes2600_common *hw_priv)
 void bes2600_enable_powersave(struct bes2600_vif *priv,
 			     bool enable)
 {
-	bes2600_dbg(BES2600_DBG_BH, "[BH] Powerave is %s.\n",
-			enable ? "enabled" : "disabled");
+	bes_devel("[BH] Powerave is %s.\n", enable ? "enabled" : "disabled");
 	priv->powersave_enabled = enable;
 }
 
@@ -449,7 +449,7 @@ static int bes2600_bh(void *arg)
 				&& !hw_priv->device_can_sleep
 				&& !atomic_read(&hw_priv->recent_scan)) {
 			status = HZ/8;
-			bes2600_dbg(BES2600_DBG_BH, "[BH] No Device wakedown.\n");
+			bes_devel("[BH] No Device wakedown.\n");
 #ifndef FPGA_SETUP
 			WARN_ON(bes2600_reg_write_16(hw_priv,
 						ST90TDS_CONTROL_REG_ID, 0));
@@ -502,7 +502,7 @@ static int bes2600_bh(void *arg)
 			bes2600_bh_read_ctrl_reg(hw_priv, &ctrl_reg);
 			if(ctrl_reg & ST90TDS_CONT_NEXT_LEN_MASK)
 			{
-				bes2600_err(BES2600_DBG_BH, "MISS 1\n");
+				bes_err("MISS 1\n");
 				rx = 1;
 				goto test;
 			}
@@ -536,7 +536,7 @@ static int bes2600_bh(void *arg)
 			if (pending && timeout < 0) {
 				//wiphy_warn(priv->hw->wiphy,
 				//	"Timeout waiting for TX confirm.\n");
-				bes2600_info(BES2600_DBG_BH, "bes2600_bh: Timeout waiting for TX confirm.\n");
+				bes_devel("bes2600_bh: Timeout waiting for TX confirm.\n");
 				break;
 			}
 
@@ -546,7 +546,7 @@ static int bes2600_bh(void *arg)
 		} else if (!status) {
 			if (!hw_priv->device_can_sleep
 					&& !atomic_read(&hw_priv->recent_scan)) {
-				bes2600_dbg(BES2600_DBG_BH, "[BH] Device wakedown. Timeout.\n");
+				bes_devel("[BH] Device wakedown. Timeout.\n");
 #ifndef FPGA_SETUP
 				WARN_ON(bes2600_reg_write_16(hw_priv,
 						ST90TDS_CONTROL_REG_ID, 0));
@@ -555,7 +555,7 @@ static int bes2600_bh(void *arg)
 			}
 			continue;
 		} else if (suspend) {
-			bes2600_dbg(BES2600_DBG_BH, "[BH] Device suspend.\n");
+			bes_devel("[BH] Device suspend.\n");
 			powersave_enabled = 1;
 			spin_lock(&hw_priv->vif_list_lock);
 			bes2600_for_each_vif(hw_priv, priv, i) {
@@ -569,7 +569,7 @@ static int bes2600_bh(void *arg)
 			}
 			spin_unlock(&hw_priv->vif_list_lock);
 			if (powersave_enabled) {
-				bes2600_dbg(BES2600_DBG_BH, "[BH] No Device wakedown. Suspend.\n");
+				bes_devel("[BH] No Device wakedown. Suspend.\n");
 #ifndef FPGA_SETUP
 				WARN_ON(bes2600_reg_write_16(hw_priv,
 						ST90TDS_CONTROL_REG_ID, 0));
@@ -588,7 +588,7 @@ static int bes2600_bh(void *arg)
 					__func__, status);
 				break;
 			}
-			bes2600_dbg(BES2600_DBG_BH, "[BH] Device resume.\n");
+			bes_devel("[BH] Device resume.\n");
 			atomic_set(&hw_priv->bh_suspend, BES2600_BH_RESUMED);
 			wake_up(&hw_priv->bh_evt_wq);
 			atomic_add(1, &hw_priv->bh_rx);
@@ -618,8 +618,7 @@ rx:
 
 			if (WARN_ON((read_len < sizeof(struct wsm_hdr)) ||
 					(read_len > EFFECTIVE_BUF_SIZE))) {
-				bes2600_dbg(BES2600_DBG_BH, "Invalid read len: %d",
-					read_len);
+				bes_devel("Invalid read len: %d", read_len);
 				break;
 			}
 
@@ -638,10 +637,8 @@ rx:
 #endif /* CONFIG_BES2600_NON_POWER_OF_TWO_BLOCKSIZES */
 
 			/* Check if not exceeding BES2600 capabilities */
-			if (WARN_ON_ONCE(alloc_len > EFFECTIVE_BUF_SIZE)) {
-				bes2600_dbg(BES2600_DBG_BH, "Read aligned len: %d\n",
-					alloc_len);
-			}
+			if (WARN_ON_ONCE(alloc_len > EFFECTIVE_BUF_SIZE))
+				bes_devel("Read aligned len: %d\n", alloc_len);
 
 			skb_rx = bes2600_get_skb(hw_priv, alloc_len);
 			if (WARN_ON(!skb_rx))
@@ -672,11 +669,8 @@ rx:
 				msgid = (*(p + 1)) & 0xC3F;
 				ifid  = (*(p + 1)) >> 6;
 				ifid &= 0xF;
-				bes2600_dbg(BES2600_DBG_BH, "[DUMP] <<< msgid 0x%.4X ifid %d len %d\n",
-							msgid, ifid, *p);
-				print_hex_dump_bytes("<-- ",
-					DUMP_PREFIX_NONE,
-					data, min(wsm_len, wsm_dump_max));
+				bes_devel("[DUMP] <<< msgid 0x%.4X ifid %d len %d\n", msgid, ifid, *p);
+				print_hex_dump(KERN_DEBUG, "<-- ", DUMP_PREFIX_NONE, data, min(wsm_len, wsm_dump_max));
 			}
 #endif /* CONFIG_BES2600_WSM_DUMPS */
 
@@ -788,11 +782,8 @@ tx:
 
 				/* Check if not exceeding BES2600
 				    capabilities */
-				if (WARN_ON_ONCE(
-				    tx_len > EFFECTIVE_BUF_SIZE)) {
-					bes2600_dbg(BES2600_DBG_BH, "Write aligned len:"
-					" %d\n", tx_len);
-				}
+				if (WARN_ON_ONCE(tx_len > EFFECTIVE_BUF_SIZE))
+					bes_devel("Write aligned len: %d\n", tx_len);
 
 				wsm->id &= __cpu_to_le32(
 						~WSM_TX_SEQ(WSM_TX_SEQ_MAX));
@@ -817,26 +808,11 @@ tx:
 					msgid = (*(p + 1)) & 0x3F;
 					ifid  = (*(p + 1)) >> 6;
 					ifid &= 0xF;
-					if (msgid == 0x0006) {
-						bes2600_dbg(BES2600_DBG_BH, "[DUMP] >>> "
-								"msgid 0x%.4X "
-								"ifid %d len %d"
-								" MIB 0x%.4X\n",
-								msgid, ifid,
-								*p, *(p + 2));
-					} else {
-						bes2600_dbg(BES2600_DBG_BH, "[DUMP] >>> "
-								"msgid 0x%.4X "
-								"ifid %d "
-								"len %d\n",
-								msgid, ifid,
-								*p);
-					}
-					print_hex_dump_bytes("--> ",
-						DUMP_PREFIX_NONE,
-						data,
-						min(__le32_to_cpu(wsm->len),
-						 wsm_dump_max));
+					if (msgid == 0x0006)
+						bes_devel("[DUMP] >>> msgid 0x%.4X ifid %d len %d MIB 0x%.4X\n", msgid, ifid, *p, *(p + 2));
+					else
+						bes_devel("[DUMP] >>> msgid 0x%.4X ifid %d len %d\n", msgid, ifid, *p);
+					print_hex_dump(KERN_DEBUG, "--> ", DUMP_PREFIX_NONE, data, min(__le32_to_cpu(wsm->len), wsm_dump_max));
 				}
 #endif /* CONFIG_BES2600_WSM_DUMPS */
 
@@ -863,7 +839,7 @@ tx:
 
 
 	if (!term) {
-		bes2600_dbg(BES2600_DBG_ERROR, "[BH] Fatal error, exitting.\n");
+		bes_devel("[BH] Fatal error, exitting.\n");
 #if defined(CONFIG_BES2600_DUMP_ON_ERROR)
 		BUG_ON(1);
 #endif /* CONFIG_BES2600_DUMP_ON_ERROR */
@@ -903,17 +879,14 @@ static void bes2600_bh_parse_ipv4_data(struct iphdr *ip)
 {
 	u8 *tmp_ptr = (u8 *)ip;
 
-	bes2600_info(BES2600_DBG_BH, "IP Addr src:0x%08x dst:0x%08x\n", 
-		__be32_to_cpu(ip->saddr), __be32_to_cpu(ip->daddr));
+	bes_info("IP Addr src:0x%08x dst:0x%08x\n", __be32_to_cpu(ip->saddr), __be32_to_cpu(ip->daddr));
 
 	if (ip->protocol == IPPROTO_TCP) {
 		struct tcphdr *tcp = (struct tcphdr *)(tmp_ptr + ip->ihl * 4);
-		bes2600_info(BES2600_DBG_BH, "TCP Port src:%d dst:%d\n",
-			__be16_to_cpu(tcp->source), __be16_to_cpu(tcp->dest));
+		bes_info("TCP Port src:%d dst:%d\n", __be16_to_cpu(tcp->source), __be16_to_cpu(tcp->dest));
 	} else if (ip->protocol == IPPROTO_UDP) {
 		struct udphdr *udp = (struct udphdr *)(tmp_ptr + ip->ihl * 4);
-		bes2600_info(BES2600_DBG_BH, "UDP Port src:%d dst:%d\n",
-			__be16_to_cpu(udp->source), __be16_to_cpu(udp->dest));
+	  bes_info("UDP Port src:%d dst:%d\n", __be16_to_cpu(udp->source), __be16_to_cpu(udp->dest));
 	}
 }
 
@@ -932,14 +905,11 @@ static void bes2600_bh_parse_data_pkt(struct bes2600_common *hw_priv, struct sk_
 	u16 *eth_type_ptr = (u16 *)(tmp_ptr + i80211_len + encry_hdr_len + ETH_ALEN);
 	u16 eth_type = __be16_to_cpu(*eth_type_ptr);
 
-	bes2600_info(BES2600_DBG_BH, "Host was waked by data:\n");
-	bes2600_info(BES2600_DBG_BH, "RA:%pM\n", ieee80211_get_DA(i80211_ptr));
-	bes2600_info(BES2600_DBG_BH, "ETH_TYPE:0x%04x\n", eth_type);
+	bes_devel("Host was waked by data:\nRA:%pM\nETH_TYPE:0x%04x\n", ieee80211_get_DA(i80211_ptr), eth_type);
 
 	if (eth_type == ETH_P_IP) {
 		struct iphdr *ip = (struct iphdr *)&eth_type_ptr[1];
-		bes2600_info(BES2600_DBG_BH, "IPVersion:%d\n", ip->version);
-		bes2600_info(BES2600_DBG_BH, "IPProtol:%d\n", ip->protocol);
+		bes_info("IP version: %d\nIP proto: %d", ip->version, ip->protocol);
 
 		if (ip->version == 4) {
 			bes2600_bh_parse_ipv4_data(ip);
@@ -966,23 +936,23 @@ static void bes2600_bh_parse_wakeup_event(struct bes2600_common *hw_priv, struct
 				if (ieee80211_is_deauth(fctl) || ieee80211_is_disassoc(fctl)) {
 					bes2600_chrdev_wakeup_by_event_set(WAKEUP_EVENT_PEER_DETACH);
 					set_wakeup_reason_later = true;
-					bes2600_info(BES2600_DBG_BH, "Host was waked by mgmt(deauth or disassoc)\n");
+					bes_devel("Host was waked by mgmt(deauth or disassoc)\n");
 				}
-				bes2600_info(BES2600_DBG_BH, "Host was waked by mgmt, type:%d(%d)\n", type, stype);
+				bes_devel("Host was waked by mgmt, type:%d(%d)\n", type, stype);
 			} else if (ieee80211_is_data(fctl)){
 				bes2600_bh_parse_data_pkt(hw_priv, skb);
 			} else {
-				bes2600_info(BES2600_DBG_BH, "Host was waked by unexpected frame, fctl:0x%04x\n", fctl);
+				bes_devel("Host was waked by unexpected frame, fctl:0x%04x\n", fctl);
 			}
 		} else if (wsm_id == 0x0C31) {
-			bes2600_info(BES2600_DBG_BH, "Host was waked by BT:0x%04x.\n", wsm_id);
+			bes_devel("Host was waked by BT:0x%04x.\n", wsm_id);
 			bes2600_chrdev_wifi_update_wakeup_reason(WAKEUP_REASON_BT_PLAY, 0);
 		} else {
 			if (wsm_id == 0x0805) {
 				bes2600_chrdev_wakeup_by_event_set(WAKEUP_EVENT_WSME);
 				set_wakeup_reason_later = true;
 			}
-			bes2600_info(BES2600_DBG_BH, "Host was waked by event:0x%04x.\n", wsm_id);
+			bes_devel("Host was waked by event:0x%04x.\n", wsm_id);
 		}
 		if (!set_wakeup_reason_later)
 			bes2600_chrdev_wakeup_by_event_set(WAKEUP_EVENT_NONE);
@@ -1020,8 +990,7 @@ static int bes2600_bh_rx_helper(struct bes2600_common *priv, int *tx)
 
 	if (WARN_ON((read_len < sizeof(struct wsm_hdr)) ||
 		    (read_len > EFFECTIVE_BUF_SIZE))) {
-		bes2600_err(BES2600_DBG_BH, "Invalid read len: %zu (%04x)",
-			 read_len, ctrl_reg);
+		bes_err("Invalid read len: %zu (%04x)\n", read_len, ctrl_reg);
 		goto err;
 	}
 
@@ -1037,10 +1006,8 @@ static int bes2600_bh_rx_helper(struct bes2600_common *priv, int *tx)
 		priv->sbus_priv, read_len);
 
 	/* Check if not exceeding BES2600 capabilities */
-	if (WARN_ON_ONCE(alloc_len > EFFECTIVE_BUF_SIZE)) {
-		bes2600_dbg(BES2600_DBG_BH, "Read aligned len: %zu\n",
-			 alloc_len);
-	}
+	if (WARN_ON_ONCE(alloc_len > EFFECTIVE_BUF_SIZE))
+		bes_devel("Read aligned len: %zu\n", alloc_len);
 
 	skb = dev_alloc_skb(alloc_len);
 	if (WARN_ON(!skb))
@@ -1053,7 +1020,7 @@ static int bes2600_bh_rx_helper(struct bes2600_common *priv, int *tx)
 		goto err;
 
 	if (WARN_ON(bes2600_data_read(priv, data, alloc_len))) {
-		bes2600_err(BES2600_DBG_BH, "rx blew up, len %zu\n", alloc_len);
+		bes_err("rx blew up, len %zu\n", alloc_len);
 		goto err;
 	}
 
@@ -1077,18 +1044,16 @@ static int bes2600_bh_rx_helper(struct bes2600_common *priv, int *tx)
 	wsm = (struct wsm_hdr *)skb->data;
 	wsm_len = __le16_to_cpu(wsm->len);
 	if (WARN_ON(wsm_len > skb->len)) {
-		bes2600_err(BES2600_DBG_BH, "wsm_len err %d %d\n", (int)wsm_len, (int)skb->len);
+		bes_err("wsm_len err %d %d\n", (int)wsm_len, (int)skb->len);
 		goto err;
 	}
 
 	if (priv->wsm_enable_wsm_dumps)
-		print_hex_dump_bytes("<-- ",
-				     DUMP_PREFIX_NONE,
-				     skb->data, wsm_len);
+		print_hex_dump(KERN_DEBUG, "<-- ", DUMP_PREFIX_NONE, 16, 1, skb->data, wsm_len, false);
 
 	wsm_id  = __le16_to_cpu(wsm->id) & 0xFFF;
 	wsm_seq = (__le16_to_cpu(wsm->id) >> 13) & 7;
-	bes2600_dbg(BES2600_DBG_BH, "bes2600_bh_rx_helper wsm_id:0x%04x seq:%d\n", wsm_id, wsm_seq);
+	bes_devel("bes2600_bh_rx_helper wsm_id:0x%04x seq:%d\n", wsm_id, wsm_seq);
 
 	skb_trim(skb, wsm_len);
 
@@ -1096,10 +1061,10 @@ static int bes2600_bh_rx_helper(struct bes2600_common *priv, int *tx)
 		wsm_handle_exception(priv,
 				     &skb->data[sizeof(*wsm)],
 				     wsm_len - sizeof(*wsm));
-		bes2600_err(BES2600_DBG_BH, "wsm exception.!\n");
+		bes_err("wsm exception\n");
 		goto err;
 	} else if ((wsm_seq != priv->wsm_rx_seq[WSM_TXRX_SEQ_IDX(wsm_id)])) {
-		bes2600_err(BES2600_DBG_BH, "seq error! %u. %u. 0x%x.", wsm_seq, priv->wsm_rx_seq[WSM_TXRX_SEQ_IDX(wsm_id)], wsm_id);
+		bes_err("seq error! %u. %u. 0x%x.", wsm_seq, priv->wsm_rx_seq[WSM_TXRX_SEQ_IDX(wsm_id)], wsm_id);
 		goto err;
 	}
 
@@ -1123,7 +1088,7 @@ static int bes2600_bh_rx_helper(struct bes2600_common *priv, int *tx)
 	/* bes2600_wsm_rx takes care on SKB livetime */
 	//if (WARN_ON(wsm_handle_rx(priv, wsm_id, wsm, &skb)))
 	if ((wsm_handle_rx(priv, wsm_id, wsm, &skb))) {
-		bes2600_err(BES2600_DBG_BH, "wsm_handle_rx fail\n");
+		bes_err("wsm_handle_rx fail\n");
 		goto err;
 	}
 
@@ -1134,7 +1099,7 @@ static int bes2600_bh_rx_helper(struct bes2600_common *priv, int *tx)
 	return rx;
 
 err:
-	bes2600_err(BES2600_DBG_BH, "bes2600_bh_rx_helper err\n");
+	bes_err("bes2600_bh_rx_helper err\n");
 	if (skb) {
 		dev_kfree_skb(skb);
 		skb = NULL;
@@ -1157,7 +1122,7 @@ static int bes2600_bh_tx_helper(struct bes2600_common *hw_priv,
 	if (ret <= 0) {
 		wsm_release_tx_buffer(hw_priv, 1);
 		if (WARN_ON(ret < 0)) {
-			bes2600_err(BES2600_DBG_BH, "bh get tx failed.\n");
+			bes_err("bh get tx failed.\n");
 			return ret; /* Error */
 		}
 		return 0; /* No work */
@@ -1177,21 +1142,19 @@ static int bes2600_bh_tx_helper(struct bes2600_common *hw_priv,
 
 	/* Check if not exceeding BES2600 capabilities */
 	if (WARN_ON_ONCE(tx_len > EFFECTIVE_BUF_SIZE))
-		bes2600_err(BES2600_DBG_BH,  "Write aligned len: %zu\n", tx_len);
+		bes_err("Write aligned len: %zu\n", tx_len);
 
 	wsm->id &= __cpu_to_le16(0xffff ^ WSM_TX_SEQ(WSM_TX_SEQ_MAX));
 	wsm->id |= __cpu_to_le16(WSM_TX_SEQ(hw_priv->wsm_tx_seq[WSM_TXRX_SEQ_IDX(wsm->id)]));
 
-	//bes2600_dbg(BES2600_DBG_BH, "usb send buff len:%u.priv->hw_bufs_used:%d.\n", tx_len, priv->hw_bufs_used);
-	bes2600_dbg(BES2600_DBG_BH, "%s id:0x%04x seq:%d\n", __func__,
-		wsm->id, hw_priv->wsm_tx_seq[WSM_TXRX_SEQ_IDX(wsm->id)]);
+	bes_devel("%s id:0x%04x seq:%d\n", __func__, wsm->id, hw_priv->wsm_tx_seq[WSM_TXRX_SEQ_IDX(wsm->id)]);
 
 #ifndef BES_SDIO_TX_MULTIPLE_ENABLE
 	if (WARN_ON(bes2600_data_write(data, tx_len))) {
 #else
 	if (WARN_ON(hw_priv->sbus_ops->pipe_send(hw_priv->sbus_priv, 1, tx_len, data))) {
 #endif
-		bes2600_err(BES2600_DBG_BH,  "tx blew up, len %zu\n", tx_len);
+		bes_err("tx blew up, len %zu\n", tx_len);
 		wsm_release_tx_buffer(hw_priv, 1);
 		return -1; /* Error */
 	}
@@ -1232,7 +1195,7 @@ ieee80211_is_tcp_pkt(struct sk_buff *skb)
 	if (skb->protocol == cpu_to_be16(ETH_P_IP)) {
 		struct iphdr *iph = (struct iphdr *)skb_network_header(skb);
 		if (iph->protocol == IPPROTO_TCP) { // TCP
-			bes2600_dbg(BES2600_DBG_BH, "################ %s line =%d.\n",__func__,__LINE__);
+			bes_devel("################ %s line =%d.\n", __func__, __LINE__);
 			return true;
 		}
 	}
@@ -1244,7 +1207,7 @@ static int bes2600_need_retry_type(struct sk_buff *skb, int status)
 {
 	int ret = 0;
 	if (!skb) {
-		bes2600_info(BES2600_DBG_BH, "################ %s line =%d.\n",__func__,__LINE__);
+		bes_devel("################ %s line =%d.\n", __func__, __LINE__);
 		return -1;
 	}
 
@@ -1271,14 +1234,14 @@ int bes2600_bh_sw_process(struct bes2600_common *hw_priv,
 	long delta_time;
 #endif
 	if (!tx_confirm) {
-		bes2600_err(BES2600_DBG_BH,  "%s tx_confirm is NULL\n", __func__);
+		bes_err("%s tx_confirm is NULL\n", __func__);
 		return 0;
 	}
 	queue_id = bes2600_queue_get_queue_id(tx_confirm->packetID);
 	queue = &hw_priv->tx_queue[queue_id];
 
 	if (!queue) {
-		bes2600_err(BES2600_DBG_BH,  "%s queue is NULL\n", __func__);
+		bes_err("%s queue is NULL\n", __func__);
 		return 0;
 	}
 
@@ -1290,7 +1253,7 @@ int bes2600_bh_sw_process(struct bes2600_common *hw_priv,
 	bes2600_queue_get_skb_and_timestamp(queue, tx_confirm->packetID,
 						&skb, &txpriv, &timestamp);
 	if (skb == NULL) {
-		bes2600_err(BES2600_DBG_BH,  "%s skb is NULL\n", __func__);
+		bes_err("%s skb is NULL\n", __func__);
 		return -1;
 	}
 	if (timestamp > jiffies)
@@ -1331,8 +1294,8 @@ void bes2600_bh_inc_pending_count(struct bes2600_common *hw_priv, int idx)
 	struct timer_list *timer = (idx == 0) ? &hw_priv->lmac_mon_timer
 	                                      : &hw_priv->mcu_mon_timer;
 
-	if(hw_priv->wsm_tx_pending[idx]++ == 0) {
-		bes2600_dbg(BES2600_DBG_BH,  "start timer in tx, idx:%d\n", idx);
+	if (hw_priv->wsm_tx_pending[idx]++ == 0) {
+		bes_devel("start timer in tx, idx:%d\n", idx);
 		mod_timer(timer, jiffies + 3 * HZ);
 	}
 }
@@ -1342,23 +1305,22 @@ void bes2600_bh_dec_pending_count(struct bes2600_common *hw_priv, int idx)
 	struct timer_list *timer = (idx == 0) ? &hw_priv->lmac_mon_timer
 	                                      : &hw_priv->mcu_mon_timer;
 
-	if(hw_priv->wsm_tx_pending[idx] == 0) {
-		bes2600_err(BES2600_DBG_TXRX, "tx pending count error, idx:%d\n", idx);
+	if (hw_priv->wsm_tx_pending[idx] == 0) {
+		bes_err("tx pending count error, idx:%d\n", idx);
 		return;
 	}
 
-	if(--hw_priv->wsm_tx_pending[idx] == 0) {
+	if (--hw_priv->wsm_tx_pending[idx] == 0)
 		del_timer_sync(timer);
-	} else {
+	else
 		mod_timer(timer, jiffies + 3 * HZ);
-	}
 }
 
 void bes2600_bh_mcu_active_monitor(struct timer_list* t)
 {
 	struct bes2600_common *hw_priv = from_timer(hw_priv, t, mcu_mon_timer);
 
-	bes2600_err(BES2600_DBG_TXRX, "link break between mcu and host, hw_buf_used:%d pending:%d\n", 
+	bes_err("link break between mcu and host, hw_buf_used:%d pending:%d\n", 
 				hw_priv->hw_bufs_used, hw_priv->wsm_tx_pending[1]);
 	bes2600_chrdev_wifi_force_close(hw_priv, true);
 }
@@ -1367,7 +1329,7 @@ void bes2600_bh_lmac_active_monitor(struct timer_list* t)
 {
 	struct bes2600_common *hw_priv = from_timer(hw_priv, t, lmac_mon_timer);
 
-	bes2600_err(BES2600_DBG_TXRX, "link break between lmac and host, hw_buf_used:%d pending:%d\n", 
+	bes_err("link break between lmac and host, hw_buf_used:%d pending:%d\n", 
 				hw_priv->hw_bufs_used, hw_priv->wsm_tx_pending[0]);
 	bes2600_chrdev_wifi_force_close(hw_priv, true);
 }
@@ -1412,9 +1374,6 @@ static int bes2600_bh(void *arg)
 				(rx || tx || term || suspend || hw_priv->bh_error);
 			}), status);
 
-		//bes2600_err(BES2600_DBG_BH,  "[BH] - rx: %d, tx: %d, term: %d, bh_err: %d, suspend: %d, bufused: %d, status: %ld\n",
-				//rx, tx, term, suspend, hw_priv->bh_error, hw_priv->hw_bufs_used, status);
-
 		/* Did an error occur? */
 		if ((status < 0 && status != -ERESTARTSYS) ||
 		    term || hw_priv->bh_error) {
@@ -1429,11 +1388,10 @@ static int bes2600_bh(void *arg)
 			#endif
 			/* Check to see if we have any outstanding frames */
 			if (hw_priv->hw_bufs_used && (!rx || !tx)) {
-				bes2600_err(BES2600_DBG_BH,  "usedbuf:%u. rx:%u. tx:%u.\n", hw_priv->hw_bufs_used, rx, tx);
+				bes_err("usedbuf:%u. rx:%u. tx:%u.\n", hw_priv->hw_bufs_used, rx, tx);
 				sdio_work_debug(hw_priv->sbus_priv);
 				#ifdef CONFIG_BES2600_WLAN_BES
-				bes2600_err(BES2600_DBG_BH,  "Missed interrupt? (%d frames outstanding)\n",
-					   hw_priv->hw_bufs_used);
+				bes_err("Missed interrupt? (%d frames outstanding)\n", hw_priv->hw_bufs_used);
 				rx = 1;
 
 				/* Get a timestamp of "oldest" frame */
@@ -1469,7 +1427,7 @@ static int bes2600_bh(void *arg)
 			goto done;
 #endif
 		} else if (suspend) {
-			bes2600_dbg(BES2600_DBG_BH,  "[BH] Device suspend.\n");
+			bes_devel("[BH] Device suspend.\n");
 
 			atomic_set(&hw_priv->bh_suspend, BES2600_BH_SUSPENDED);
 			wake_up(&hw_priv->bh_evt_wq);
@@ -1481,7 +1439,7 @@ static int bes2600_bh(void *arg)
 					  status);
 				break;
 			}
-			bes2600_dbg(BES2600_DBG_BH,  "[BH] Device resume.\n");
+			bes_devel("[BH] Device resume.\n");
 			atomic_set(&hw_priv->bh_suspend, BES2600_BH_RESUMED);
 			wake_up(&hw_priv->bh_evt_wq);
 			atomic_add(1, &hw_priv->bh_rx);
@@ -1497,7 +1455,7 @@ static int bes2600_bh(void *arg)
 #endif
 		ret = bes2600_bh_rx_helper(hw_priv, &tx);
 		if (ret < 0) {
-			bes2600_err(BES2600_DBG_BH, "bes2600_bh_rx_helper fail\n");
+			bes_err("bes2600_bh_rx_helper fail\n");
 			sdio_work_debug(hw_priv->sbus_priv);
 			// break; // rx error
 			bes2600_chrdev_wifi_force_close(hw_priv, false);
@@ -1528,13 +1486,13 @@ static int bes2600_bh(void *arg)
 				/* Buffers full.  Ensure we process tx
 				 * after we handle rx..
 				 */
-				bes2600_err(BES2600_DBG_BH,  "bh tx not allowed.\n");
+				bes_devel("bh tx not allowed.\n");
 				pending_tx = tx;
 				goto done_rx;
 			}
 			ret = bes2600_bh_tx_helper(hw_priv, &pending_tx, &tx_burst);
 			if (ret < 0) {
-				bes2600_err(BES2600_DBG_BH, "bes2600_bh_tx_helper fail\n");
+				bes_err("bes2600_bh_tx_helper fail\n");
 				sdio_work_debug(hw_priv->sbus_priv);
 				break;
 			}
@@ -1577,7 +1535,7 @@ static int bes2600_bh(void *arg)
 	hw_priv->sbus_ops->unlock(hw_priv->sbus_priv);
 
 	if (!term) {
-		bes2600_err(BES2600_DBG_BH,  "[BH] Fatal error, exiting.\n");
+		bes_err("[BH] Fatal error, exiting.\n");
 		sdio_work_debug(hw_priv->sbus_priv);
 		hw_priv->bh_error = 1;
 		/* TODO: schedule_work(recovery) */

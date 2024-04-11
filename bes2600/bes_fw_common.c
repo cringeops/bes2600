@@ -9,6 +9,7 @@
  * published by the Free Software Foundation.
  */
 #include "bes_fw_common.h"
+#include "bes_log.h"
 
 //#define BES_CRC32_DOUBLE_CHECK
 #ifdef BES_CRC32_DOUBLE_CHECK
@@ -43,22 +44,22 @@ void bes_parse_fw_info(const u8 *data, u32 data_len, u32 *load_addr, u32 *crc32)
 
 
 #ifdef BES_CRC32_DOUBLE_CHECK
-	bes2600_dbg(BES2600_DBG_DOWNLOAD, "crc32 %x(le) %x(be) %x(bes)\n", crc_le, crc_be, crc_bes);
+	bes_devel("crc32 %x(le) %x(be) %x(bes)\n", crc_le, crc_be, crc_bes);
 #else
-	bes2600_dbg(BES2600_DBG_DOWNLOAD, "crc32                :0x%08X\n", crc_le);
+	bes_devel("crc32                :0x%08X\n", crc_le);
 #endif
-	bes2600_dbg(BES2600_DBG_DOWNLOAD, "exec_struct.entry    :0x%08X\n", exec_struct.entry);
-	bes2600_dbg(BES2600_DBG_DOWNLOAD, "exec_struct.param    :0x%08X\n", exec_struct.param);
-	bes2600_dbg(BES2600_DBG_DOWNLOAD, "exec_struct.sp       :0x%08X\n", exec_struct.sp);
-	bes2600_dbg(BES2600_DBG_DOWNLOAD, "exec_struct.exec_addr:0x%08X\n", exec_struct.exec_addr);
+	bes_devel("exec_struct.entry    :0x%08X\n", exec_struct.entry);
+	bes_devel("exec_struct.param    :0x%08X\n", exec_struct.param);
+	bes_devel("exec_struct.sp       :0x%08X\n", exec_struct.sp);
+	bes_devel("exec_struct.exec_addr:0x%08X\n", exec_struct.exec_addr);
 
 	exec_addr_last4byte = (*((u32 *)(data + data_len - 4)));
-	bes2600_dbg(BES2600_DBG_DOWNLOAD, "exec_addr_last4byte  :0x%08X\n", exec_addr_last4byte);
+	bes_devel("exec_addr_last4byte  :0x%08X\n", exec_addr_last4byte);
 	if ((!exec_struct.exec_addr) || (exec_struct.exec_addr != exec_addr_last4byte && exec_addr_last4byte)) {
 		exec_struct.exec_addr = exec_addr_last4byte;
-		bes2600_dbg(BES2600_DBG_DOWNLOAD, "exec_addr_last4byte covered exec_struct.exec_addr\n");
+		bes_devel("exec_addr_last4byte covered exec_struct.exec_addr\n");
 	}
-	bes2600_dbg(BES2600_DBG_DOWNLOAD, "final exec_struct.exec_addr:0x%08X\n", exec_struct.exec_addr);
+	bes_devel("final exec_struct.exec_addr:0x%08X\n", exec_struct.exec_addr);
 
 	*load_addr = exec_struct.exec_addr;
 
@@ -77,22 +78,22 @@ int bes_frame_rsp_check(void *rsp, u8 frame_num)
 		if (pframe->frame_num == frame_num) {
 			if (pframe->len == 4) {
 				if (pframe->payload == ERR_NONE) {
-					bes2600_dbg(BES2600_DBG_DOWNLOAD, "bes slave  download firmware is ready\n");
+					bes_devel("bes slave  download firmware is ready\n");
 				} else {
-					bes2600_err(BES2600_DBG_DOWNLOAD, "frame payload=0x%x\n", pframe->payload);
+					bes_err("frame payload=0x%x\n", pframe->payload);
 					ret = -200;
 				}
 			} else {
-				bes2600_err(BES2600_DBG_DOWNLOAD, "payload len error:%u\n", pframe->len);
+				bes_err("payload len error:%u\n", pframe->len);
 				ret = -201;
 			}
 		} else {
-			bes2600_err(BES2600_DBG_DOWNLOAD, "frame num err. 0x%x != 0x%x. len:%u\n",
+			bes_err("frame num err. 0x%x != 0x%x. len:%u\n",
 				pframe->frame_num, frame_num, pframe->len);
 			ret = -202;
 		}
 	} else {
-		bes2600_err(BES2600_DBG_DOWNLOAD, "frame type err. type 0x%x num=0x%x(0x%x), len:%u\n",
+		bes_err("frame type err. type 0x%x num=0x%x(0x%x), len:%u\n",
 			pframe->type, pframe->frame_num, frame_num, pframe->len);
 		ret = -203;
 	}

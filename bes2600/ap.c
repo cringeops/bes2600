@@ -72,7 +72,7 @@ int bes2600_sta_add(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	WARN_ON(priv->if_id == CW12XX_GENERIC_IF_ID);
 #endif
 
-	bes2600_info(BES2600_DBG_AP, "%s mode:%u, MFP:%u\n",
+	bes_devel( "%s mode:%u, MFP:%u\n",
 		__FUNCTION__, priv->mode, sta->mfp);
 
 	if (priv->mode == NL80211_IFTYPE_STATION)
@@ -127,7 +127,7 @@ int bes2600_sta_remove(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	WARN_ON(priv->if_id == CW12XX_GENERIC_IF_ID);
 #endif
 
-	bes2600_info(BES2600_DBG_AP, "%s mode:%u\n", __FUNCTION__, priv->mode);
+	bes_devel( "%s mode:%u\n", __FUNCTION__, priv->mode);
 
 	if (priv->mode == NL80211_IFTYPE_STATION)
 		priv->pmf = false;
@@ -225,7 +225,7 @@ static void bes2600_ps_notify(struct bes2600_vif *priv,
 	if (link_id > CW1250_MAX_STA_IN_AP_MODE)
 		return;
 
-	bes2600_dbg(BES2600_DBG_TXRX, "%s for LinkId: %d. STAs asleep: %.8X\n",
+	bes_devel("%s for LinkId: %d. STAs asleep: %.8X\n",
 			ps ? "Stop" : "Start",
 			link_id, priv->sta_asleep_mask);
 
@@ -244,7 +244,7 @@ static int bes2600_set_tim_impl(struct bes2600_vif *priv, bool aid0_bit_set)
 	};
 	u16 tim_offset, tim_length;
 
-	bes2600_dbg(BES2600_DBG_AP, "[AP] %s mcast: %s.\n",
+	bes_devel("[AP] %s mcast: %s.\n",
 		__func__, aid0_bit_set ? "ena" : "dis");
 	skb = ieee80211_beacon_get_tim(priv->hw, priv->vif,
 			&tim_offset, &tim_length, 0);
@@ -321,7 +321,7 @@ void bes2600_set_cts_work(struct work_struct *work)
 
 	erp_ie[ERP_INFO_BYTE_OFFSET] = erp_info;
 
-	bes2600_dbg(BES2600_DBG_AP, "[STA] ERP information 0x%x\n", erp_info);
+	bes_devel("[STA] ERP information 0x%x\n", erp_info);
 
 	/* TODO:COMBO: If 2 interfaces are on the same channel they share
 	the same ERP values */
@@ -354,12 +354,12 @@ static int bes2600_set_btcoexinfo(struct bes2600_vif *priv)
 	if (!priv->vif->p2p) {
 		/* STATION mode */
 		if (priv->bss_params.operationalRateSet & ~0xF) {
-			bes2600_dbg(BES2600_DBG_AP, "[STA] STA has ERP rates\n");
+			bes_devel("[STA] STA has ERP rates\n");
 			/* G or BG mode */
 			arg.internalTxRate = (__ffs(
 			priv->bss_params.operationalRateSet & ~0xF));
 		} else {
-			bes2600_dbg(BES2600_DBG_AP, "[STA] STA has non ERP rates\n");
+			bes_devel("[STA] STA has non ERP rates\n");
 			/* B only mode */
 			arg.internalTxRate = (__ffs(
 			priv->association_mode.basicRateSet));
@@ -374,7 +374,7 @@ static int bes2600_set_btcoexinfo(struct bes2600_vif *priv)
 			priv->bss_params.operationalRateSet & ~0xF));
 	}
 
-	bes2600_dbg(BES2600_DBG_AP, "[STA] BTCOEX_INFO"
+	bes_devel("[STA] BTCOEX_INFO"
 		"MODE %d, internalTxRate : %x, nonErpInternalTxRate: %x\n",
 		priv->mode,
 		arg.internalTxRate,
@@ -402,7 +402,7 @@ void bes2600_bss_info_changed(struct ieee80211_hw *dev,
 	if (priv->if_id == CW12XX_GENERIC_IF_ID)
 		return;
 #endif
-	bes2600_info(BES2600_DBG_AP, "BSS CHANGED:	%08llx\n", changed);
+	bes_devel( "BSS CHANGED:	%08llx\n", changed);
 	down(&hw_priv->conf_lock);
 	if (changed & BSS_CHANGED_BSSID) {
 #ifdef CONFIG_BES2600_TESTMODE
@@ -427,7 +427,7 @@ void bes2600_bss_info_changed(struct ieee80211_hw *dev,
 
 		struct wsm_arp_ipv4_filter filter = {0};
 		int i;
-		bes2600_dbg(BES2600_DBG_AP, "[STA] BSS_CHANGED_ARP_FILTER cnt: %d",
+		bes_devel("[STA] BSS_CHANGED_ARP_FILTER cnt: %d",
 				     cfg->arp_addr_cnt);
 
 #ifdef WIFI_BT_COEXIST_EPTA_ENABLE
@@ -441,7 +441,7 @@ void bes2600_bss_info_changed(struct ieee80211_hw *dev,
 		    cfg->arp_addr_cnt <= WSM_MAX_ARP_IP_ADDRTABLE_ENTRIES) {
 			for (i = 0; i < cfg->arp_addr_cnt; i++) {
 				filter.ipv4Address[i] = cfg->arp_addr_list[i];
-				bes2600_dbg(BES2600_DBG_AP, "[STA] addr[%d]: 0x%X\n",
+				bes_devel("[STA] addr[%d]: 0x%X\n",
 					  i, filter.ipv4Address[i]);
 			}
 			if (vif->type == NL80211_IFTYPE_STATION)
@@ -453,7 +453,7 @@ void bes2600_bss_info_changed(struct ieee80211_hw *dev,
 		} else
 			filter.enable = 0;
 
-		bes2600_dbg(BES2600_DBG_AP, "[STA] arp ip filter enable: %d\n",
+		bes_devel("[STA] arp ip filter enable: %d\n",
 			  __le32_to_cpu(filter.enable));
 
 		if (filter.enable)
@@ -503,7 +503,7 @@ void bes2600_bss_info_changed(struct ieee80211_hw *dev,
 		int i;
 		u16 *ipv6addr = NULL;
 
-		bes2600_dbg(BES2600_DBG_AP, "[STA] BSS_CHANGED_NDP_FILTER "
+		bes_devel("[STA] BSS_CHANGED_NDP_FILTER "
 				     "enabled: %d, cnt: %d\n",
 				     info->ndp_filter_enabled,
 				     info->ndp_addr_cnt);
@@ -524,7 +524,7 @@ void bes2600_bss_info_changed(struct ieee80211_hw *dev,
 			for (i = 0; i < info->ndp_addr_cnt; i++) {
 				priv->filter6.ipv6Address[i] = filter.ipv6Address[i] = info->ndp_addr_list[i];
 				ipv6addr = (u16 *)(&filter.ipv6Address[i]);
-				bes2600_dbg(BES2600_DBG_AP, "[STA] ipv6 addr[%d]: %x:%x:%x:%x:%x:%x:%x:%x\n", \
+				bes_devel("[STA] ipv6 addr[%d]: %x:%x:%x:%x:%x:%x:%x:%x\n", \
 									i, cpu_to_be16(*(ipv6addr + 0)), cpu_to_be16(*(ipv6addr + 1)), \
 									cpu_to_be16(*(ipv6addr + 2)), cpu_to_be16(*(ipv6addr + 3)), \
 									cpu_to_be16(*(ipv6addr + 4)), cpu_to_be16(*(ipv6addr + 5)), \
@@ -534,7 +534,7 @@ void bes2600_bss_info_changed(struct ieee80211_hw *dev,
 			filter.enable = 0;
 			for (i = 0; i < info->ndp_addr_cnt; i++) {
 				ipv6addr = (u16 *)(&info->ndp_addr_list[i]);
-				bes2600_dbg(BES2600_DBG_AP, "[STA] ipv6 addr[%d]: %x:%x:%x:%x:%x:%x:%x:%x\n", \
+				bes_devel("[STA] ipv6 addr[%d]: %x:%x:%x:%x:%x:%x:%x:%x\n", \
 									i, cpu_to_be16(*(ipv6addr + 0)), cpu_to_be16(*(ipv6addr + 1)), \
 									cpu_to_be16(*(ipv6addr + 2)), cpu_to_be16(*(ipv6addr + 3)), \
 									cpu_to_be16(*(ipv6addr + 4)), cpu_to_be16(*(ipv6addr + 5)), \
@@ -542,7 +542,7 @@ void bes2600_bss_info_changed(struct ieee80211_hw *dev,
 			}
 		}
 
-		bes2600_dbg(BES2600_DBG_AP, "[STA] ndp ip filter enable: %d\n",
+		bes_devel("[STA] ndp ip filter enable: %d\n",
 			  __le32_to_cpu(filter.enable));
 
 		if (filter.enable)
@@ -573,7 +573,7 @@ void bes2600_bss_info_changed(struct ieee80211_hw *dev,
 #endif /*IPV6_FILTERING*/
 
 	if (changed & BSS_CHANGED_BEACON) {
-		bes2600_dbg(BES2600_DBG_AP, "BSS_CHANGED_BEACON\n");
+		bes_devel("BSS_CHANGED_BEACON\n");
 #ifdef HIDDEN_SSID
 		if (priv->join_status != BES2600_JOIN_STATUS_AP)
 		{
@@ -582,19 +582,19 @@ void bes2600_bss_info_changed(struct ieee80211_hw *dev,
 			memcpy(priv->ssid, info->ssid, info->ssid_len);
 		}
 		else
-			bes2600_dbg(BES2600_DBG_AP, "priv->join_status=%d\n",priv->join_status);
+			bes_devel("priv->join_status=%d\n",priv->join_status);
 #endif
 		WARN_ON(bes2600_upload_beacon(priv));
 		WARN_ON(bes2600_update_beaconing(priv));
 	}
 
 	if (changed & BSS_CHANGED_BEACON_ENABLED) {
-		bes2600_dbg(BES2600_DBG_AP, "BSS_CHANGED_BEACON_ENABLED dummy\n");
+		bes_devel("BSS_CHANGED_BEACON_ENABLED dummy\n");
 		priv->enable_beacon = info->enable_beacon;
 	}
 
 	if (changed & BSS_CHANGED_BEACON_INT) {
-		bes2600_dbg(BES2600_DBG_AP, "CHANGED_BEACON_INT\n");
+		bes_devel("CHANGED_BEACON_INT\n");
 		/* Restart AP only when connected */
 		if (priv->join_status == BES2600_JOIN_STATUS_AP)
 			WARN_ON(bes2600_update_beaconing(priv));
@@ -627,7 +627,7 @@ void bes2600_bss_info_changed(struct ieee80211_hw *dev,
 		int is_combo = 0;
 		int i;
 		struct bes2600_vif *tmp_priv;
-		bes2600_info(BES2600_DBG_AP, "BSS_CHANGED_ASSOC assoc: %d.\n", cfg->assoc);
+		bes_devel( "BSS_CHANGED_ASSOC assoc: %d.\n", cfg->assoc);
 		if (cfg->assoc) { /* TODO: ibss_joined */
 			struct ieee80211_sta *sta = NULL;
 			if (info->dtim_period)
@@ -659,7 +659,7 @@ void bes2600_bss_info_changed(struct ieee80211_hw *dev,
 					sta->deflink.supp_rates[hw_priv->channel->band]));
 				rcu_read_unlock();
 				ch_type = cfg80211_get_chandef_type(&info->chandef);
-				bes2600_dbg(BES2600_DBG_AP, "[STA] ch %d, type: %d, HT oper mode: %d\n",
+				bes_devel("[STA] ch %d, type: %d, HT oper mode: %d\n",
 					  hw_priv->channel->hw_value,
 					  ch_type, info->ht_operation_mode);
 				if ((changed & BSS_CHANGED_ASSOC) &&
@@ -671,7 +671,7 @@ void bes2600_bss_info_changed(struct ieee80211_hw *dev,
 					channel.channelSwitchCount = 0;
 					channel.newChannelNumber = hw_priv->channel->hw_value;
 					wsm_switch_channel(hw_priv, &channel, priv->if_id);
-					bes2600_info(BES2600_DBG_AP, "channel type changed to %d !!!\n", hw_priv->ht_info.channel_type);
+					bes_devel( "channel type changed to %d !!!\n", hw_priv->ht_info.channel_type);
 				}
 				if (hw_priv->ht_info.operation_mode != info->ht_operation_mode)
 					hw_priv->ht_info.operation_mode = info->ht_operation_mode;
@@ -706,23 +706,23 @@ void bes2600_bss_info_changed(struct ieee80211_hw *dev,
 			if (is_combo > 1) {
 				hw_priv->vif0_throttle = CW12XX_HOST_VIF0_11BG_THROTTLE;
 				hw_priv->vif1_throttle = CW12XX_HOST_VIF1_11BG_THROTTLE;
-				bes2600_info(BES2600_DBG_AP, "ASSOC is_combo %d\n",hw_priv->vif0_throttle);
+				bes_devel( "ASSOC is_combo %d\n",hw_priv->vif0_throttle);
 			} else if ((priv->join_status == BES2600_JOIN_STATUS_STA) &&
 					priv->htcap) {
 				hw_priv->vif0_throttle = CW12XX_HOST_VIF0_11N_THROTTLE;
 				hw_priv->vif1_throttle = CW12XX_HOST_VIF1_11N_THROTTLE;
-				bes2600_info(BES2600_DBG_AP, "ASSOC HTCAP 11N %d\n",hw_priv->vif0_throttle);
+				bes_devel( "ASSOC HTCAP 11N %d\n",hw_priv->vif0_throttle);
 			} else {
 				hw_priv->vif0_throttle = CW12XX_HOST_VIF0_11BG_THROTTLE;
 				hw_priv->vif1_throttle = CW12XX_HOST_VIF1_11BG_THROTTLE;
-				bes2600_info(BES2600_DBG_AP, "ASSOC not_combo 11BG %d\n",hw_priv->vif0_throttle);
+				bes_devel( "ASSOC not_combo 11BG %d\n",hw_priv->vif0_throttle);
 			}
 
 			if (sta) {
 				__le32 val = 0;
 				if (hw_priv->ht_info.operation_mode &
 				IEEE80211_HT_OP_MODE_NON_GF_STA_PRSNT) {
-					bes2600_info(BES2600_DBG_AP, "[STA]"
+					bes_devel( "[STA]"
 						" Non-GF STA present\n");
 					/* Non Green field capable STA */
 					val = __cpu_to_le32(BIT(1));
@@ -770,9 +770,9 @@ void bes2600_bss_info_changed(struct ieee80211_hw *dev,
 			if (priv->join_dtim_period < 1)
 				priv->join_dtim_period = 1;
 
-			bes2600_dbg(BES2600_DBG_AP, "[STA] DTIM %d, interval: %d\n",
+			bes_devel("[STA] DTIM %d, interval: %d\n",
 				priv->join_dtim_period, priv->beacon_int);
-			bes2600_dbg(BES2600_DBG_AP, "[STA] Preamble: %d, " \
+			bes_devel("[STA] Preamble: %d, " \
 				"Greenfield: %d, Aid: %d, " \
 				"Rates: 0x%.8X, Basic: 0x%.8X\n",
 				priv->association_mode.preambleType,
@@ -802,7 +802,7 @@ void bes2600_bss_info_changed(struct ieee80211_hw *dev,
 			}
 
 			if (priv->vif->p2p) {
-				bes2600_dbg(BES2600_DBG_AP,
+				bes_devel(
 					"[STA] Setting p2p powersave "
 					"configuration.\n");
 				WARN_ON(wsm_set_p2p_ps_modeinfo(hw_priv,
@@ -821,7 +821,7 @@ void bes2600_bss_info_changed(struct ieee80211_hw *dev,
 			atomic_set(&priv->connect_in_process, 0);
 			if (priv->delayed_unjoin) {
 				priv->delayed_unjoin = false;
-				bes2600_info(BES2600_DBG_AP, "queue delayed unjoin work for connect\n");
+				bes_devel( "queue delayed unjoin work for connect\n");
 				if (queue_work(hw_priv->workqueue, &priv->unjoin_work) <= 0)
 					wsm_unlock_tx(hw_priv);
 			}
@@ -882,7 +882,7 @@ void bes2600_bss_info_changed(struct ieee80211_hw *dev,
 	if (changed & (BSS_CHANGED_ASSOC | BSS_CHANGED_ERP_SLOT)) {
 		__le32 slot_time = info->use_short_slot ?
 			__cpu_to_le32(9) : __cpu_to_le32(20);
-		bes2600_dbg(BES2600_DBG_AP, "[STA] Slot time :%d us.\n",
+		bes_devel("[STA] Slot time :%d us.\n",
 			__le32_to_cpu(slot_time));
 		WARN_ON(wsm_write_mib(hw_priv, WSM_MIB_ID_DOT11_SLOT_TIME,
 			&slot_time, sizeof(slot_time), priv->if_id));
@@ -899,13 +899,13 @@ void bes2600_bss_info_changed(struct ieee80211_hw *dev,
 		info->cqm_rssi_hyst = 4;
 #endif /* 0 */
 
-		bes2600_dbg(BES2600_DBG_AP, "[CQM] RSSI threshold "
+		bes_devel("[CQM] RSSI threshold "
 			"subscribe: %d +- %d\n",
 			info->cqm_rssi_thold, info->cqm_rssi_hyst);
 #if defined(CONFIG_BES2600_USE_STE_EXTENSIONS)
-		bes2600_dbg(BES2600_DBG_AP, "[CQM] Beacon loss subscribe: %d\n",
+		bes_devel("[CQM] Beacon loss subscribe: %d\n",
 			info->cqm_beacon_miss_thold);
-		bes2600_dbg(BES2600_DBG_AP, "[CQM] TX failure subscribe: %d\n",
+		bes_devel("[CQM] TX failure subscribe: %d\n",
 			info->cqm_tx_fail_thold);
 		priv->cqm_rssi_thold = info->cqm_rssi_thold;
 		priv->cqm_rssi_hyst = info->cqm_rssi_hyst;
@@ -981,7 +981,7 @@ void bes2600_bss_info_changed(struct ieee80211_hw *dev,
 			channel.channelSwitchCount = 0;
 			channel.newChannelNumber = hw_priv->channel->hw_value;
 			wsm_switch_channel(hw_priv, &channel, priv->if_id);
-			bes2600_info(BES2600_DBG_AP, "channel type changed to %d !!!\n", hw_priv->ht_info.channel_type);
+			bes_devel( "channel type changed to %d !!!\n", hw_priv->ht_info.channel_type);
 		}
 	}
 
@@ -1002,7 +1002,7 @@ void bes2600_bss_info_changed(struct ieee80211_hw *dev,
 			}
 		}
 
-		bes2600_info(BES2600_DBG_AP, "[STA] Aid: %d, Joined: %s, Powersave: %s\n",
+		bes_devel( "[STA] Aid: %d, Joined: %s, Powersave: %s\n",
 			priv->bss_params.aid,
 			priv->join_status == BES2600_JOIN_STATUS_STA ? "yes" : "no",
 			priv->powersave_mode.pmMode == WSM_PSM_ACTIVE ? "WSM_PSM_ACTIVE" :
@@ -1040,8 +1040,8 @@ void bes2600_bss_info_changed(struct ieee80211_hw *dev,
 	if (changed & BSS_CHANGED_P2P_PS) {
 		struct wsm_p2p_ps_modeinfo *modeinfo;
 		modeinfo = &priv->p2p_ps_modeinfo;
-		bes2600_dbg(BES2600_DBG_AP, "[AP] BSS_CHANGED_P2P_PS\n");
-		bes2600_dbg(BES2600_DBG_AP, "[AP] Legacy PS: %d for AID %d "
+		bes_devel("[AP] BSS_CHANGED_P2P_PS\n");
+		bes_devel("[AP] Legacy PS: %d for AID %d "
 			"in %d mode.\n", info->p2p_ps.legacy_ps,
 			priv->bss_params.aid, priv->join_status);
 
@@ -1057,14 +1057,14 @@ void bes2600_bss_info_changed(struct ieee80211_hw *dev,
 				bes2600_set_pm(priv, &priv->powersave_mode);
 		}
 
-		bes2600_dbg(BES2600_DBG_AP, "[AP] CTWindow: %d\n",
+		bes_devel("[AP] CTWindow: %d\n",
 			info->p2p_ps.ctwindow);
 		if (info->p2p_ps.ctwindow >= 128)
 			modeinfo->oppPsCTWindow = 127;
 		else if (info->p2p_ps.ctwindow >= 0)
 			modeinfo->oppPsCTWindow = info->p2p_ps.ctwindow;
 
-		bes2600_dbg(BES2600_DBG_AP, "[AP] Opportunistic: %d\n",
+		bes_devel("[AP] Opportunistic: %d\n",
 			info->p2p_ps.opp_ps);
 		switch (info->p2p_ps.opp_ps) {
 		case 0:
@@ -1077,7 +1077,7 @@ void bes2600_bss_info_changed(struct ieee80211_hw *dev,
 			break;
 		}
 
-		bes2600_dbg(BES2600_DBG_AP, "[AP] NOA: %d, %d, %d, %d\n",
+		bes_devel("[AP] NOA: %d, %d, %d, %d\n",
 			info->p2p_ps.count,
 			info->p2p_ps.start,
 			info->p2p_ps.duration,
@@ -1210,7 +1210,7 @@ void bes2600_suspend_resume(struct bes2600_vif *priv,
 	struct bes2600_common *hw_priv =
 		cw12xx_vifpriv_to_hwpriv(priv);
 
-	bes2600_dbg(BES2600_DBG_AP, "[AP] %s: %s\n",
+	bes_devel("[AP] %s: %s\n",
 			arg->stop ? "stop" : "start",
 			arg->multicast ? "broadcast" : "unicast");
 
@@ -1304,12 +1304,12 @@ static int bes2600_upload_beacon(struct bes2600_vif *priv)
 		u8 *ssid_ie;
 		u8 ssid_len;
 
-		bes2600_dbg(BES2600_DBG_AP, "%s: hidden_ssid set\n", __func__);
+		bes_devel("%s: hidden_ssid set\n", __func__);
 		ssid_ie = (u8 *)cfg80211_find_ie(WLAN_EID_SSID, ies, ies_len);
 		WARN_ON(!ssid_ie);
 		ssid_len = ssid_ie[1];
 		if (ssid_len) {
-			bes2600_dbg(BES2600_DBG_AP, "%s: hidden_ssid with zero content "
+			bes_devel("%s: hidden_ssid with zero content "
 					"ssid\n", __func__);
 			ssid_ie[1] = 0;
 			memmove(ssid_ie + 2, ssid_ie + 2 + ssid_len,
@@ -1317,7 +1317,7 @@ static int bes2600_upload_beacon(struct bes2600_vif *priv)
 					 (ssid_ie + 2 + ssid_len)));
 			frame.skb->len -= ssid_len;
 		} else {
-			pbes2600_dbg(BES2600_DBG_AP, "%s: hidden ssid with ssid len 0"
+			pbes_devel("%s: hidden ssid with ssid len 0"
 					" not supported", __func__);
 			dev_kfree_skb(frame.skb);
 			return -1;
@@ -1390,7 +1390,7 @@ static int bes2600_upload_proberesp(struct bes2600_vif *priv)
 		if (ssid_len && (ssid_len == priv->ssid_length)) {
 			memcpy(ssid_ie + 2, priv->ssid, ssid_len);
 		} else {
-			bes2600_dbg(BES2600_DBG_AP, "%s: hidden ssid with mismatched ssid_len %d\n",
+			bes_devel("%s: hidden ssid with mismatched ssid_len %d\n",
 					__func__, ssid_len);
 			dev_kfree_skb(frame.skb);
 			return -1;
@@ -1509,8 +1509,8 @@ static int start_dhcpd(void)
 
 	result=call_usermodehelper(cmdPath,cmdArgv,cmdEnvp, UMH_WAIT_EXEC);
 #endif
-	bes2600_info(BES2600_DBG_AP, "testDriver1 _init exec! The result of call_usermodehelper is %d\n",result);
-	bes2600_info(BES2600_DBG_AP, "testDriver1 _init exec! The process is \"%s\",pid is %d\n",current->comm,current->pid);
+	bes_devel( "testDriver1 _init exec! The result of call_usermodehelper is %d\n",result);
+	bes_devel( "testDriver1 _init exec! The process is \"%s\",pid is %d\n",current->comm,current->pid);
 
 	return 0;
 }
@@ -1600,7 +1600,7 @@ static int bes2600_start_ap(struct bes2600_vif *priv)
 
 	memset(&priv->link_id_db, 0, sizeof(priv->link_id_db));
 
-	bes2600_info(BES2600_DBG_AP, "[AP] ch: %d(%d), bcn: %d(%d), "
+	bes_devel( "[AP] ch: %d(%d), bcn: %d(%d), "
 		"brt: 0x%.8X, ssid: %.*s.\n",
 		start.channelNumber, start.band,
 		start.beaconInterval, start.DTIMPeriod,
@@ -1611,7 +1611,7 @@ static int bes2600_start_ap(struct bes2600_vif *priv)
 		ret = wsm_switch_channel(hw_priv, &channel, priv->if_id);
 
 	if (!ret && priv->vif->p2p) {
-		bes2600_dbg(BES2600_DBG_AP, "[AP] Setting p2p powersave "
+		bes_devel("[AP] Setting p2p powersave "
 			"configuration.\n");
 		WARN_ON(wsm_set_p2p_ps_modeinfo(hw_priv,
 			&priv->p2p_ps_modeinfo, priv->if_id));
@@ -1647,7 +1647,7 @@ static int bes2600_start_ap(struct bes2600_vif *priv)
 	}
 	hw_priv->vif0_throttle = CW12XX_HOST_VIF0_11BG_THROTTLE;
 	hw_priv->vif1_throttle = CW12XX_HOST_VIF1_11BG_THROTTLE;
-	bes2600_info(BES2600_DBG_AP, "AP/GO mode BG THROTTLE %d\n", hw_priv->vif0_throttle);
+	bes_devel( "AP/GO mode BG THROTTLE %d\n", hw_priv->vif0_throttle);
 	return ret;
 }
 
@@ -1664,7 +1664,7 @@ static int bes2600_update_beaconing(struct bes2600_vif *priv)
 		/* TODO: check if changed channel, band */
 		if (priv->join_status != BES2600_JOIN_STATUS_AP ||
 		    priv->beacon_int != conf->beacon_int) {
-			bes2600_dbg(BES2600_DBG_AP, "ap restarting\n");
+			bes_devel("ap restarting\n");
 			wsm_lock_tx(hw_priv);
 			if (priv->join_status != BES2600_JOIN_STATUS_PASSIVE)
 				WARN_ON(wsm_reset(hw_priv, &reset,
@@ -1673,7 +1673,7 @@ static int bes2600_update_beaconing(struct bes2600_vif *priv)
 			WARN_ON(bes2600_start_ap(priv));
 			wsm_unlock_tx(hw_priv);
 		} else
-			bes2600_dbg(BES2600_DBG_AP, "ap started join_status: %d\n",
+			bes_devel("ap started join_status: %d\n",
 				  priv->join_status);
 	}
 	return 0;
@@ -1721,7 +1721,7 @@ int bes2600_alloc_link_id(struct bes2600_vif *priv, const u8 *mac)
 	}
 	if (ret) {
 		struct bes2600_link_entry *entry = &priv->link_id_db[ret - 1];
-		bes2600_dbg(BES2600_DBG_AP, "[AP] STA added, link_id: %d\n",
+		bes_devel("[AP] STA added, link_id: %d\n",
 			ret);
 		entry->status = BES2600_LINK_RESERVE;
 		memcpy(&entry->mac, mac, ETH_ALEN);
@@ -1836,7 +1836,7 @@ void bes2600_link_id_gc_work(struct work_struct *work)
 		}
 		if (need_reset) {
 			skb_queue_purge(&priv->link_id_db[i].rx_queue);
-			bes2600_dbg(BES2600_DBG_AP, "[AP] STA removed, link_id: %d\n",
+			bes_devel("[AP] STA removed, link_id: %d\n",
 					i + 1);
 		}
 	}
@@ -1855,7 +1855,7 @@ void bes2600_notify_noa(struct bes2600_vif *priv, int delay)
 	struct wsm_p2p_ps_modeinfo *modeinfo;
 	modeinfo = &priv->p2p_ps_modeinfo;
 
-	bes2600_dbg(BES2600_DBG_AP, "[AP]: %s called\n", __func__);
+	bes_devel("[AP]: %s called\n", __func__);
 
 	if (priv->join_status != BES2600_JOIN_STATUS_AP)
 		return;

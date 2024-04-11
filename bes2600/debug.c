@@ -361,13 +361,6 @@ static ssize_t bes2600_11n_write(struct file *file,
 	return count;
 }
 
-static const struct file_operations fops_bes2600_log_control = {
-	.open = bes2600_log_control_open,
-	.read = bes2600_log_control_read,
-	.write = bes2600_log_control_write,
-	.llseek = default_llseek,
-};
-
 static const struct file_operations fops_11n = {
 	.open = bes2600_generic_open,
 	.read = bes2600_11n_read,
@@ -493,10 +486,6 @@ int bes2600_debug_init_common(struct bes2600_common *hw_priv)
 
 	if (!debugfs_create_file("11n", S_IRUSR | S_IWUSR,
 			d->debugfs_phy, hw_priv, &fops_11n))
-		goto err;
-
-	if (!debugfs_create_file("bes2600_log_control", S_IRUSR | S_IWUSR,
-			d->debugfs_phy, hw_priv, &fops_bes2600_log_control))
 		goto err;
 
 	if (!debugfs_create_file("wsm_dumps", S_IWUSR, d->debugfs_phy,
