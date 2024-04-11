@@ -136,7 +136,7 @@ static int bes2600_scan_start(struct bes2600_vif *priv, struct wsm_scan *scan)
 			channel.channelSwitchCount = 0;
 			channel.newChannelNumber = hw_priv->channel->hw_value;
 			wsm_switch_channel(hw_priv, &channel, hw_priv->scan_switch_if_id);
-			bes2600_info(BES2600_DBG_SCAN, "scan start channel type %d num %d\n", hw_priv->ht_info.channel_type, channel.newChannelNumber);
+			bes_devel("scan start channel type %d num %d\n", hw_priv->ht_info.channel_type, channel.newChannelNumber);
 		}
 	}
 	for (i = 0; i < scan->numOfChannels; ++i)
@@ -254,7 +254,7 @@ int bes2600_hw_scan(struct ieee80211_hw *hw,
 	hw_priv->scan.if_id = priv->if_id;
 	/* TODO:COMBO: Populate BIT4 in scanflags to decide on which MAC
 	 * address the SCAN request will be sent */
-	bes2600_info(BES2600_DBG_SCAN, "%s %d if_id:%d,num_channel:%d.\n", __func__, __LINE__, priv->if_id, req->n_channels);
+	bes_devel("%s %d if_id:%d,num_channel:%d.\n", __func__, __LINE__, priv->if_id, req->n_channels);
 
 	for (i = 0; i < req->n_ssids; ++i) {
 		struct wsm_ssid *dst =
@@ -549,7 +549,7 @@ void bes2600_scan_work(struct work_struct *work)
 			bwifi_change_current_status(hw_priv, BWIFI_STATUS_IDLE);
 		}
 #endif
-		bes2600_info(BES2600_DBG_SCAN, "%s %d %d.", __func__, __LINE__, hw_priv->ht_info.channel_type);
+		bes_devel("%s %d %d.", __func__, __LINE__, hw_priv->ht_info.channel_type);
 		/* switch to previous channel and bw mode after scan done */
 		if (hw_priv->scan_switch_if_id >= 0) {
 			struct wsm_switch_channel channel;
@@ -558,7 +558,7 @@ void bes2600_scan_work(struct work_struct *work)
 			channel.newChannelNumber = hw_priv->channel->hw_value;
 			wsm_switch_channel(hw_priv, &channel, hw_priv->scan_switch_if_id);
 			hw_priv->scan_switch_if_id = -1;
-			bes2600_info(BES2600_DBG_SCAN, "scan done channel type %d num %d\n", hw_priv->ht_info.channel_type, channel.newChannelNumber);
+			bes_devel("scan done channel type %d num %d\n", hw_priv->ht_info.channel_type, channel.newChannelNumber);
 		}
 
 		hw_priv->scan.req = NULL;
@@ -843,7 +843,7 @@ static void bes2600_scan_restart_delayed(struct bes2600_vif *priv)
 	if (priv->join_status == BES2600_JOIN_STATUS_MONITOR) {
 		/*bes2600_enable_listening(priv);*/
 		// WARN_ON(1);
-		bes2600_dbg(BES2600_DBG_SCAN, "scan complete join_status is monitor");
+		bes_devel("scan complete join_status is monitor");
 		bes2600_update_filtering(priv);
 	}
 
@@ -993,7 +993,7 @@ void bes2600_cancel_hw_scan(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 	struct bes2600_common *hw_priv = cw12xx_vifpriv_to_hwpriv(priv);
 
 	if(hw_priv->scan.if_id == priv->if_id) {
-		bes2600_dbg(BES2600_DBG_SCAN, "cancel hw_scan on intf:%d\n", priv->if_id);
+		bes_devel("cancel hw_scan on intf:%d\n", priv->if_id);
 
 		down(&hw_priv->conf_lock);
 		hw_priv->scan.req = NULL;

@@ -14,6 +14,7 @@
 
 #include "epta_coex.h"
 #include "epta_request.h"
+#include "bes_log.h"
 
 #define EPTA_PERIOD_TIME					102400
 
@@ -196,7 +197,7 @@ static uint32_t coex_calc_bt_time(void)
 			min_time = g_coex_bt_oper[i].min_time;
 	}
 
-	bes2600_dbg(BES2600_DBG_EPTA, "%s time:%u, min_time:%u", __func__, time, min_time);
+	bes_devel("%s time:%u, min_time:%u", __func__, time, min_time);
 	time = time < min_time ? min_time : time;
 	return time < BT_TIME_MAX ? time : BT_TIME_MAX;
 }
@@ -235,7 +236,7 @@ static void coex_bt_state_notify(struct bes2600_common *hw_priv)
 
 static void coex_bt_oper_status(struct bes2600_common *hw_priv, BWIFI_BT_STATUS_T type)
 {
-	bes2600_dbg(BES2600_DBG_EPTA, "%s type:%d", __func__, type);
+	bes_devel("%s type:%d", __func__, type);
 
 	switch (type) {
 	case BWIFI_BT_STATUS_SHUTDOWN:
@@ -268,14 +269,14 @@ static void coex_bt_oper_status(struct bes2600_common *hw_priv, BWIFI_BT_STATUS_
 		g_coex_bt_oper[COEX_BT_OPER_STATUS].min_time = BT_CONNECTED_SNIFF_MIN_TIME;
 		break;
 	default:
-		bes2600_err(BES2600_DBG_EPTA, "%s type error:%d", __func__, type);
+		bes_err("%s type error:%d", __func__, type);
 		break;
 	}
 }
 
 static void coex_bt_oper_scan(struct bes2600_common *hw_priv, BWIFI_BT_SCAN_T type)
 {
-	bes2600_dbg(BES2600_DBG_EPTA, "%s type:%d", __func__, type);
+	bes_devel("%s type:%d", __func__, type);
 
 	switch (type) {
 	case BWIFI_BT_BOTHSCAN_DISABLE:
@@ -299,14 +300,14 @@ static void coex_bt_oper_scan(struct bes2600_common *hw_priv, BWIFI_BT_SCAN_T ty
 		g_coex_bt_oper[COEX_BT_OPER_SCAN].min_time = BT_ISCAN_ENABLE_MIN_TIME;
 		break;
 	default:
-		bes2600_err(BES2600_DBG_EPTA, "%s type error:%d", __func__, type);
+		bes_err("%s type error:%d", __func__, type);
 		break;
 	}
 }
 
 static void coex_bt_oper_audio(struct bes2600_common *hw_priv, BWIFI_BT_AUDIO_T type)
 {
-	bes2600_dbg(BES2600_DBG_EPTA, "%s type:%d", __func__, type);
+	bes_devel("%s type:%d", __func__, type);
 
 	switch (type) {
 	case BWIFI_BT_AUDIO_NONE:
@@ -325,14 +326,14 @@ static void coex_bt_oper_audio(struct bes2600_common *hw_priv, BWIFI_BT_AUDIO_T 
 		g_coex_bt_oper[COEX_BT_OPER_AUDIO].min_time = BT_AUDIO_SCO_MIN_TIME;
 		break;
 	default:
-		bes2600_err(BES2600_DBG_EPTA, "%s type error:%d", __func__, type);
+		bes_err("%s type error:%d", __func__, type);
 		break;
 	}
 }
 
 static void coex_bt_oper_inq(struct bes2600_common *hw_priv, BWIFI_BT_INQ_T type)
 {
-	bes2600_dbg(BES2600_DBG_EPTA, "%s type:%d", __func__, type);
+	bes_devel("%s type:%d", __func__, type);
 
 	switch (type) {
 	case BWIFI_BT_INQ_START:
@@ -346,14 +347,14 @@ static void coex_bt_oper_inq(struct bes2600_common *hw_priv, BWIFI_BT_INQ_T type
 		g_coex_bt_oper[COEX_BT_OPER_INQ].min_time = BT_INQ_STOP_MIN_TIME;
 		break;
 	default:
-		bes2600_err(BES2600_DBG_EPTA, "%s type error:%d", __func__, type);
+		bes_err("%s type error:%d", __func__, type);
 		break;
 	}
 }
 
 static void coex_bt_oper_le_scan(struct bes2600_common *hw_priv, BWIFI_BT_LE_SCAN_T type)
 {
-	bes2600_dbg(BES2600_DBG_EPTA, "%s type:%d", __func__, type);
+	bes_devel("%s type:%d", __func__, type);
 
 	switch (type) {
 	case BWIFI_LE_SCAN_START:
@@ -367,14 +368,14 @@ static void coex_bt_oper_le_scan(struct bes2600_common *hw_priv, BWIFI_BT_LE_SCA
 		g_coex_bt_oper[COEX_BT_OPER_LE_SCAN].min_time = BT_LE_SCAN_STOP_MIN_TIME;
 		break;
 	default:
-		bes2600_err(BES2600_DBG_EPTA, "%s type error:%d", __func__, type);
+		bes_err("%s type error:%d", __func__, type);
 		break;
 	}
 }
 
 static void coex_bt_oper_le_adv(struct bes2600_common *hw_priv, BWIFI_BT_LE_ADV_T type)
 {
-	bes2600_dbg(BES2600_DBG_EPTA, "%s type:%d", __func__, type);
+	bes_devel("%s type:%d", __func__, type);
 
 	switch (type) {
 	case BWIFI_LE_ADV_START:
@@ -388,14 +389,14 @@ static void coex_bt_oper_le_adv(struct bes2600_common *hw_priv, BWIFI_BT_LE_ADV_
 		g_coex_bt_oper[COEX_BT_OPER_LE_ADV].min_time = BT_LE_ADV_STOP_MIN_TIME;
 		break;
 	default:
-		bes2600_err(BES2600_DBG_EPTA, "%s type error:%d", __func__, type);
+		bes_err("%s type error:%d", __func__, type);
 		break;
 	}
 }
 
 static void coex_bt_oper_le_status(struct bes2600_common *hw_priv, BWIFI_BT_LE_STATUS_T type)
 {
-	bes2600_dbg(BES2600_DBG_EPTA, "%s type:%d", __func__, type);
+	bes_devel("%s type:%d", __func__, type);
 
 	switch (type) {
 	case BWIFI_LE_CONNECTED:
@@ -409,14 +410,14 @@ static void coex_bt_oper_le_status(struct bes2600_common *hw_priv, BWIFI_BT_LE_S
 		g_coex_bt_oper[COEX_BT_OPER_LE_STATUS].min_time = BT_LE_DISCONNECTED_MIN_TIME;
 		break;
 	default:
-		bes2600_err(BES2600_DBG_EPTA, "%s type error:%d", __func__, type);
+		bes_err("%s type error:%d", __func__, type);
 		break;
 	}
 }
 
 static int coex_wifi_state_notify(struct bes2600_common *hw_priv, enum bwifi_epta_state state)
 {
-	bes2600_dbg(BES2600_DBG_EPTA, "%s state:%d", __func__, state);
+	bes_devel("%s state:%d", __func__, state);
 	switch (state) {
 	case EPTA_STATE_WIFI_DISCONNECTED:
 		coex_set_wifi_conn(hw_priv, state);
@@ -450,72 +451,72 @@ static int coex_wifi_state_notify(struct bes2600_common *hw_priv, enum bwifi_ept
 
 static void coex_wifi_idle(struct bes2600_common *hw_priv, BWIFI_STATUS_T value)
 {
-	bes2600_dbg(BES2600_DBG_EPTA, "%s", __func__);
+	bes_devel("%s", __func__);
 	coex_set_fdd_mode(false);
 	coex_wifi_state_notify(hw_priv, EPTA_STATE_WIFI_DISCONNECTED);
 }
 
 static void coex_wifi_scanning(struct bes2600_common *hw_priv, BWIFI_STATUS_T value)
 {
-	bes2600_dbg(BES2600_DBG_EPTA, "%s", __func__);
+	bes_devel("%s", __func__);
 	coex_set_fdd_mode(false); //scan use tdd
 	coex_wifi_state_notify(hw_priv, EPTA_STATE_WIFI_SCANNING);
 }
 
 static void coex_wifi_scan_comp(struct bes2600_common *hw_priv, BWIFI_STATUS_T value)
 {
-	bes2600_dbg(BES2600_DBG_EPTA, "%s", __func__);
+	bes_devel("%s", __func__);
 	coex_wifi_state_notify(hw_priv, EPTA_STATE_WIFI_SCAN_COMP);
 }
 
 static void coex_wifi_connecting(struct bes2600_common *hw_priv, BWIFI_STATUS_T value)
 {
-	bes2600_dbg(BES2600_DBG_EPTA, "%s", __func__);
+	bes_devel("%s", __func__);
 	coex_set_fdd_mode(false);
 	coex_wifi_state_notify(hw_priv, EPTA_STATE_WIFI_CONNECTING);
 }
 
 static void coex_wifi_connecting_5g(struct bes2600_common *hw_priv, BWIFI_STATUS_T value)
 {
-	bes2600_dbg(BES2600_DBG_EPTA, "%s", __func__);
+	bes_devel("%s", __func__);
 	coex_set_fdd_mode(true);
 	coex_wifi_state_notify(hw_priv, EPTA_STATE_WIFI_CONNECTING);
 }
 
 static void coex_wifi_connected(struct bes2600_common *hw_priv, BWIFI_STATUS_T value)
 {
-	bes2600_dbg(BES2600_DBG_EPTA, "%s", __func__);
+	bes_devel("%s", __func__);
 	coex_wifi_state_notify(hw_priv, EPTA_STATE_WIFI_CONNECTED);
 }
 
 static void coex_wifi_connected_5g(struct bes2600_common *hw_priv, BWIFI_STATUS_T value)
 {
-	bes2600_dbg(BES2600_DBG_EPTA, "%s", __func__);
+	bes_devel("%s", __func__);
 	coex_set_fdd_mode(true);
 	coex_wifi_state_notify(hw_priv, EPTA_STATE_WIFI_CONNECTED);
 }
 
 static void coex_wifi_got_ip(struct bes2600_common *hw_priv, BWIFI_STATUS_T value)
 {
-	bes2600_dbg(BES2600_DBG_EPTA, "%s", __func__);
+	bes_devel("%s", __func__);
 	coex_wifi_state_notify(hw_priv, EPTA_STATE_WIFI_GOT_IP);
 }
 
 static void coex_wifi_got_ip_5g(struct bes2600_common *hw_priv, BWIFI_STATUS_T value)
 {
-	bes2600_dbg(BES2600_DBG_EPTA, "%s", __func__);
+	bes_devel("%s", __func__);
 	coex_set_fdd_mode(true); // used for scan -> got ip 5g
 	coex_wifi_state_notify(hw_priv, EPTA_STATE_WIFI_GOT_IP);
 }
 
 static void coex_wifi_disconnecting(struct bes2600_common *hw_priv, BWIFI_STATUS_T value)
 {
-	bes2600_dbg(BES2600_DBG_EPTA, "%s", __func__);
+	bes_devel("%s", __func__);
 }
 
 static void coex_wifi_disconnected(struct bes2600_common *hw_priv, BWIFI_STATUS_T value)
 {
-	bes2600_dbg(BES2600_DBG_EPTA, "%s", __func__);
+	bes_devel("%s", __func__);
 	coex_set_fdd_mode(false);
 	coex_wifi_state_notify(hw_priv, EPTA_STATE_WIFI_DISCONNECTED);
 }
@@ -524,17 +525,17 @@ static int coex_wifi_bt_ts_request(struct bes2600_common *hw_priv, COEX_TS_TYPE_
 {
 	COEX_WIFI_BT_TS_T *wifi_bt_ts_event;
 
-	bes2600_info(BES2600_DBG_EPTA, "%s type:%u, value:0x%x", __func__, type, value);
+	bes_devel("%s type:%u, value:0x%x", __func__, type, value);
 
 	if (atomic_read(&hw_priv->netdevice_start) == 0) {
-		bes2600_info(BES2600_DBG_EPTA, "net down. skip");
+		bes_devel("net down. skip");
 		return 0;
 	}
 
 	/* called from spin lock vif_lock context */
 	wifi_bt_ts_event = kmalloc(sizeof(COEX_WIFI_BT_TS_T), GFP_ATOMIC);
 	if (wifi_bt_ts_event == NULL) {
-		bes2600_err(BES2600_DBG_EPTA, "ts_event: malloc fail");
+		bes_err("ts_event: malloc fail");
 		return -ENOMEM;
 	}
 
@@ -609,11 +610,11 @@ static void coex_wifi_bt_ts_cb(struct bes2600_common *hw_priv, COEX_WIFI_BT_TS_T
 			coex_wifi_disconnected(hw_priv, (BWIFI_STATUS_T)evt->value);
 			break;
 		default:
-			bes2600_err(BES2600_DBG_EPTA, "UNKNOWN WIFI type %d", evt->value);
+			bes_err("UNKNOWN WIFI type %d", evt->value);
 			break;
 		}
 	} else {
-		bes2600_err(BES2600_DBG_EPTA, "UNKNOWN EPTA type %d, %d", evt->type, evt->value);
+		bes_err("UNKNOWN EPTA type %d, %d", evt->type, evt->value);
 	}
 }
 

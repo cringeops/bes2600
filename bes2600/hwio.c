@@ -14,6 +14,7 @@
 #include "bes2600.h"
 #include "hwio.h"
 #include "sbus.h"
+#include "bes_log.h"
 
  /* Sdio addr is 4*spi_addr */
 #define SPI_REG_ADDR_TO_SDIO(spi_reg_addr) ((spi_reg_addr) << 2)
@@ -34,8 +35,7 @@ static int __bes2600_reg_read(u16 addr, void *buf, size_t buf_len, int buf_id)
 
 	/* Check if buffer is aligned to 4 byte boundary */
 	if (WARN_ON(((unsigned long)buf & 3) && (buf_len > 4))) {
-		bes2600_err(BES2600_DBG_SBUS,
-			   "%s: buffer is not aligned.\n", __func__);
+		bes_err("%s: buffer is not aligned.\n", __func__);
 		return -EINVAL;
 	}
 
@@ -57,8 +57,7 @@ static int __bes2600_reg_write(u16 addr, const void *buf, size_t buf_len, int bu
 #if 0
 	/* Check if buffer is aligned to 4 byte boundary */
 	if (WARN_ON(((unsigned long)buf & 3) && (buf_len > 4))) {
-		bes2600_dbg(BES2600_DBG_SBUS, "%s: buffer is not aligned.\n",
-				__func__);
+		bes_devel("%s: buffer is not aligned.\n", __func__);
 		return -EINVAL;
 	}
 #endif
@@ -128,8 +127,7 @@ int bes2600_data_read(void *buf, size_t buf_len)
 			} else {
 				retry++;
 				mdelay(1);
-				bes2600_err(BES2600_DBG_SBUS, "%s,error :[%d]\n",
-						__func__, ret);
+				bes_err("%s,error :[%d]\n", __func__, ret);
 			}
 		}
 	}
@@ -140,8 +138,7 @@ int bes2600_data_read(void *buf, size_t buf_len)
 		if (ret) {
 			retry ++;
 			mdelay(1);
-			bes2600_dbg(BES2600_DBG_SBUS, "%s error :[%d]\n",
-					__func__, ret);
+			bes_err("%s error :[%d]\n", __func__, ret);
 		} else {
 			break;
 		}
@@ -172,8 +169,7 @@ int bes2600_data_write(const void *buf, size_t buf_len)
 			} else {
 				retry++;
 				mdelay(1);
-				bes2600_err(BES2600_DBG_SBUS, "%s,error :[%d]\n",
-						__func__, ret);
+				bes_err("%s,error :[%d]\n", __func__, ret);
 			}
 		}
 	}
@@ -183,8 +179,7 @@ int bes2600_data_write(const void *buf, size_t buf_len)
 		if (ret) {
 			retry++;
 			mdelay(1);
-			bes2600_dbg(BES2600_DBG_SBUS, "%s,error :[%d]\n",
-					__func__, ret);
+			bes_err("%s,error :[%d]\n", __func__, ret);
 		} else {
 			break;
 		}
@@ -200,9 +195,7 @@ int bes2600_indirect_read(u32 addr, void *buf, size_t buf_len, u32 prefetch, u16
 	int i, ret;
 
 	if ((buf_len / 2) >= 0x1000) {
-		bes2600_err(BES2600_DBG_SBUS,
-				"%s: Can't read more than 0xfff words.\n",
-				__func__);
+		bes_err("%s: Can't read more than 0xfff words.\n", __func__);
 		WARN_ON(1);
 		return -EINVAL;
 		goto out;
@@ -212,27 +205,21 @@ int bes2600_indirect_read(u32 addr, void *buf, size_t buf_len, u32 prefetch, u16
 	/* Write address */
 	ret = __bes2600_reg_write_32(ST90TDS_SRAM_BASE_ADDR_REG_ID, addr);
 	if (ret < 0) {
-		bes2600_err(BES2600_DBG_SBUS,
-				"%s: Can't write address register.\n",
-				__func__);
+		bes_err("%s: Can't write address register.\n", __func__);
 		goto out;
 	}
 
 	/* Read CONFIG Register Value - We will read 32 bits */
 	ret = __bes2600_reg_read_32(ST90TDS_CONFIG_REG_ID, &val32);
 	if (ret < 0) {
-		bes2600_err(BES2600_DBG_SBUS,
-				"%s: Can't read config register.\n",
-				__func__);
+		bes_err("%s: Can't read config register.\n", __func__);
 		goto out;
 	}
 
 	/* Set PREFETCH bit */
 	ret = __bes2600_reg_write_32(ST90TDS_CONFIG_REG_ID, val32 | prefetch);
 	if (ret < 0) {
-		bes2600_err(BES2600_DBG_SBUS,
-				"%s: Can't write prefetch bit.\n",
-				__func__);
+		bes_err("%s: Can't write prefetch bit.\n", __func__);
 		goto out;
 	}
 
@@ -240,9 +227,7 @@ int bes2600_indirect_read(u32 addr, void *buf, size_t buf_len, u32 prefetch, u16
 	for (i = 0; i < 20; i++) {
 		ret = __bes2600_reg_read_32(ST90TDS_CONFIG_REG_ID, &val32);
 		if (ret < 0) {
-			bes2600_err(BES2600_DBG_SBUS,
-					"%s: Can't check prefetch bit.\n",
-					__func__);
+			bes_err("%s: Can't check prefetch bit.\n", __func__);
 			goto out;
 		}
 		if (!(val32 & prefetch))
@@ -252,18 +237,14 @@ int bes2600_indirect_read(u32 addr, void *buf, size_t buf_len, u32 prefetch, u16
 	}
 
 	if (val32 & prefetch) {
-		bes2600_err(BES2600_DBG_SBUS,
-				"%s: Prefetch bit is not cleared.\n",
-				__func__);
+		bes_err("%s: Prefetch bit is not cleared.\n", __func__);
 		goto out;
 	}
 
 	/* Read data port */
 	ret = __bes2600_reg_read(port_addr, buf, buf_len, 0);
 	if (ret < 0) {
-		bes2600_err(BES2600_DBG_SBUS,
-				"%s: Can't read data port.\n",
-				__func__);
+		bes_err("%s: Can't read data port.\n", __func__);
 		goto out;
 	}
 
@@ -277,9 +258,7 @@ int bes2600_apb_write(u32 addr, const void *buf, size_t buf_len)
 	int ret;
 
 	if ((buf_len / 2) >= 0x1000) {
-		bes2600_err(BES2600_DBG_SBUS,
-				"%s: Can't wrire more than 0xfff words.\n",
-				__func__);
+		bes_err("%s: Can't wrire more than 0xfff words.\n", __func__);
 		WARN_ON(1);
 		return -EINVAL;
 	}
@@ -289,17 +268,14 @@ int bes2600_apb_write(u32 addr, const void *buf, size_t buf_len)
 	/* Write address */
 	ret = __bes2600_reg_write_32(ST90TDS_SRAM_BASE_ADDR_REG_ID, addr);
 	if (ret < 0) {
-		bes2600_err(BES2600_DBG_SBUS,
-				"%s: Can't write address register.\n",
-				__func__);
+		bes_err("%s: Can't write address register.\n", __func__);
 		goto out;
 	}
 
 	/* Write data port */
 	ret = __bes2600_reg_write(ST90TDS_SRAM_DPORT_REG_ID, buf, buf_len, 0);
 	if (ret < 0) {
-		bes2600_err(BES2600_DBG_SBUS, "%s: Can't write data port.\n",
-				__func__);
+		bes_err("%s: Can't write data port.\n", __func__);
 		goto out;
 	}
 

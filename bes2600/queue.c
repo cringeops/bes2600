@@ -15,6 +15,7 @@
 #include "bes2600.h"
 #include "queue.h"
 #include "debug.h"
+#include "bes_log.h"
 #ifdef CONFIG_BES2600_TESTMODE
 #include <linux/time.h>
 #endif /*CONFIG_BES2600_TESTMODE*/
@@ -72,8 +73,7 @@ static inline void __bes2600_queue_lock(struct bes2600_queue *queue)
 {
 	struct bes2600_queue_stats *stats = queue->stats;
 	if (queue->tx_locked_cnt++ == 0) {
-		bes2600_dbg(BES2600_DBG_TXRX, "[TX] Queue %d is locked.\n",
-				queue->queue_id);
+		bes_devel("[TX] Queue %d is locked.\n", queue->queue_id);
 		ieee80211_stop_queue(stats->hw_priv->hw, queue->queue_id);
 	}
 }
@@ -83,8 +83,7 @@ static inline void __bes2600_queue_unlock(struct bes2600_queue *queue)
 	struct bes2600_queue_stats *stats = queue->stats;
 	BUG_ON(!queue->tx_locked_cnt);
 	if (--queue->tx_locked_cnt == 0) {
-		bes2600_dbg(BES2600_DBG_TXRX, "[TX] Queue %d is unlocked.\n",
-				queue->queue_id);
+		bes_devel("[TX] Queue %d is unlocked.\n", queue->queue_id);
 		ieee80211_wake_queue(stats->hw_priv->hw, queue->queue_id);
 	}
 }
@@ -469,17 +468,15 @@ int bes2600_queue_put(struct bes2600_queue *queue,
 			mod_timer(&queue->gc, jiffies);
 		}
 	} else {
-		bes2600_err(BES2600_DBG_TXRX, "queue->free_pool is empty, queue->num_queued_vif[%d]: %ld\n",
+		bes_err("queue->free_pool is empty, queue->num_queued_vif[%d]: %ld\n",
 			 txpriv->if_id, queue->num_queued_vif[txpriv->if_id]);
 		ret = -ENOENT;
 	}
 #if 0
-	bes2600_dbg(BES2600_DBG_TXRX, "queue_put queue %d, %d, %d\n",
+	bes_devel("queue_put queue %d, %d, %d\n",
 		queue->num_queued,
 		queue->link_map_cache[txpriv->if_id][txpriv->link_id],
 		queue->num_pending);
-	bes2600_dbg(BES2600_DBG_TXRX, "queue_put stats %d, %d\n", stats->num_queued,
-		stats->link_map_cache[txpriv->if_id][txpriv->link_id]);
 #endif
 	spin_unlock_bh(&queue->lock);
 	return ret;
@@ -533,16 +530,13 @@ int bes2600_queue_get(struct bes2600_queue *queue,
 
 		spin_unlock_bh(&stats->lock);
 #if 0
-		bes2600_dbg(BES2600_DBG_TXRX, "queue_get queue %d, %d, %d\n",
+		bes_devel("queue_get queue %d, %d, %d\n",
 		queue->num_queued,
 		queue->link_map_cache[item->txpriv.if_id][item->txpriv.link_id],
 		queue->num_pending);
-		bes2600_dbg(BES2600_DBG_TXRX, "queue_get stats %d, %d\n", stats->num_queued,
-		stats->link_map_cache[item->txpriv.if_id]
-		[item->txpriv.link_id]);
 #endif
 	} else {
-		bes2600_warn(BES2600_DBG_TXRX, "%s: queue get failed, if_id = %d, link_id_map = %u\n", __func__, if_id, link_id_map);
+		bes_warn("%s: queue get failed, if_id = %d, link_id_map = %u\n", __func__, if_id, link_id_map);
 	}
 
 	spin_unlock_bh(&queue->lock);
@@ -572,8 +566,7 @@ int bes2600_queue_requeue(struct bes2600_queue *queue, u32 packetID, bool check)
 #else
 	if (check && item->txpriv.offchannel_if_id == CW12XX_GENERIC_IF_ID) {
 #endif
-		bes2600_dbg(BES2600_DBG_TXRX, "Requeued frame dropped for "
-						"generic interface id.\n");
+		bes_devel("Requeued frame dropped for generic interface id.\n");
 #ifdef CONFIG_BES2600_TESTMODE
 		bes2600_queue_remove(hw_priv, queue, packetID);
 #else
@@ -592,7 +585,7 @@ int bes2600_queue_requeue(struct bes2600_queue *queue, u32 packetID, bool check)
 	spin_lock_bh(&queue->lock);
 	BUG_ON(queue_id != queue->queue_id);
 	if (unlikely(queue_generation != queue->generation)) {
-		bes2600_info(BES2600_DBG_TXRX, "%s, Queue Generation is not equal\n", __func__);
+		bes_info("%s, Queue Generation is not equal\n", __func__);
 		ret = 0;
 	} else if (unlikely(item_id >= (unsigned) queue->capacity)) {
 		WARN_ON(1);
@@ -616,11 +609,11 @@ int bes2600_queue_requeue(struct bes2600_queue *queue, u32 packetID, bool check)
 			if_id, link_id);
 		list_move(&item->head, &queue->queue);
 #if 0
-		bes2600_dbg(BES2600_DBG_TXRX, "queue_requeue queue %d, %d, %d\n",
+		bes_devel("queue_requeue queue %d, %d, %d\n",
 		queue->num_queued,
 		queue->link_map_cache[if_id][item->txpriv.link_id],
 		queue->num_pending);
-		bes2600_dbg(BES2600_DBG_TXRX, "queue_requeue stats %d, %d\n",
+		bes_devel("queue_requeue stats %d, %d\n",
 		stats->num_queued,
 		stats->link_map_cache[if_id][item->txpriv.link_id]);
 #endif
@@ -644,8 +637,7 @@ int bes2600_sw_retry_requeue(struct bes2600_common *hw_priv,
 #else
 	if (check && item->txpriv.offchannel_if_id == CW12XX_GENERIC_IF_ID) {
 #endif
-		bes2600_dbg(BES2600_DBG_TXRX, "Requeued frame dropped for "
-						"generic interface id.\n");
+		bes_devel("Requeued frame dropped for generic interface id.\n");
 #ifdef CONFIG_BES2600_TESTMODE
 		bes2600_queue_remove(hw_priv, queue, packetID);
 #else
@@ -662,7 +654,7 @@ int bes2600_sw_retry_requeue(struct bes2600_common *hw_priv,
 	spin_lock_bh(&queue->lock);
 	BUG_ON(queue_id != queue->queue_id);
 	if (unlikely(queue_generation != queue->generation)) {
-		bes2600_info(BES2600_DBG_TXRX, "%s, Queue Generation is not equal\n", __func__);
+		bes_info("%s, Queue Generation is not equal\n", __func__);
 		ret = 0;
 	} else if (unlikely(item_id >= (unsigned) queue->capacity)) {
 		WARN_ON(1);
@@ -744,7 +736,7 @@ int bes2600_queue_remove(struct bes2600_queue *queue, u32 packetID)
 	BUG_ON(queue_id != queue->queue_id);
 	/*TODO:COMBO:Add check for interface ID also */
 	if (unlikely(queue_generation != queue->generation)) {
-		bes2600_info(BES2600_DBG_TXRX, "%s, Queue Generation is not equal\n", __func__);
+		bes_info("%s, Queue Generation is not equal\n", __func__);
 		ret = 0;
 	} else if (unlikely(item_id >= (unsigned) queue->capacity)) {
 		WARN_ON(1);
@@ -813,10 +805,10 @@ int bes2600_queue_remove(struct bes2600_queue *queue, u32 packetID)
 	spin_unlock_bh(&queue->lock);
 
 #if 0
-	bes2600_dbg(BES2600_DBG_TXRX, "queue_drop queue %d, %d, %d\n",
+	bes_devel("queue_drop queue %d, %d, %d\n",
 		queue->num_queued, queue->link_map_cache[if_id][0],
 		queue->num_pending);
-	bes2600_dbg(BES2600_DBG_TXRX, "queue_drop stats %d, %d\n", stats->num_queued,
+	bes_devel("queue_drop stats %d, %d\n", stats->num_queued,
 		stats->link_map_cache[if_id][0]);
 #endif
 	if (gc_skb)
@@ -857,14 +849,14 @@ int bes2600_queue_get_skb(struct bes2600_queue *queue, u32 packetID,
 	BUG_ON(queue_id != queue->queue_id);
 	/* TODO:COMBO: Add check for interface ID here */
 	if (unlikely(queue_generation != queue->generation)) {
-		bes2600_info(BES2600_DBG_TXRX, "%s, Queue Generation is not equal\n", __func__);
+		bes_info("%s, Queue Generation is not equal\n", __func__);
 		WARN_ON(1);
 		ret = -EINVAL;
 	} else if (unlikely(item_id >= (unsigned) queue->capacity)) {
 		WARN_ON(1);
 		ret = -EINVAL;
 	} else if (unlikely(item->generation != item_generation)) {
-		bes2600_info(BES2600_DBG_TXRX, "%s, item_generation =%u, item_id =%u link_id=%u queue_generation =%u packetID =%u\n",
+		bes_info("%s, item_generation =%u, item_id =%u link_id=%u queue_generation =%u packetID =%u\n",
 			__func__, item_generation, item_id, link_id, queue_generation, packetID);
 		WARN_ON(1);
 		ret = -ENOENT;

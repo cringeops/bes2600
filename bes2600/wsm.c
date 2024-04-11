@@ -33,6 +33,7 @@
 #include "bes2600_factory.h"
 #include "epta_coex.h"
 #include "epta_request.h"
+#include "bes_log.h"
 
 #define WSM_CMD_TIMEOUT		(6 * HZ) /* With respect to interrupt loss */
 #define WSM_CMD_JOIN_TIMEOUT	(7 * HZ) /* Join timeout is 5 sec. in FW   */
@@ -685,7 +686,7 @@ static int wsm_join_confirm(struct bes2600_common *hw_priv,
 	wsm_oper_unlock(hw_priv);
 
 	if (status != WSM_STATUS_SUCCESS) {
-		bes2600_warn(BES2600_DBG_WSM, "wsm_join_confirm ret %u\n", status);
+		bes_warn("wsm_join_confirm ret %u\n", status);
 		return -EINVAL;
 	}
 
@@ -1117,7 +1118,7 @@ int wsm_epta_cmd(struct bes2600_common *hw_priv, struct wsm_epta_msg *arg)
 		// }
 	}
 
-	bes2600_info(BES2600_DBG_WSM, "epta cmd: wlan:%d bt:%d enable:%x",
+	bes_devel("epta cmd: wlan:%d bt:%d enable:%x",
 		arg->wlan_duration, arg->bt_duration, arg->hw_epta_enable);
 
 	/*
@@ -1260,7 +1261,7 @@ nomem:
 static int wsm_give_buffer_confirm(struct bes2600_common *hw_priv,
 							struct wsm_buf *buf)
 {
-	bes2600_dbg(BES2600_DBG_WSM, "[WSM] HW Buf count %d\n", hw_priv->hw_bufs_used);
+	bes_devel("[WSM] HW Buf count %d\n", hw_priv->hw_bufs_used);
 	if (!hw_priv->hw_bufs_used)
 		wake_up(&hw_priv->bh_evt_wq);
 
@@ -1313,7 +1314,7 @@ static int wsm_request_buffer_confirm(struct bes2600_vif *priv,
 
 	spin_lock_bh(&priv->ps_state_lock);
 	change_mask = (priv->sta_asleep_mask ^ sta_asleep_mask);
-	bes2600_dbg(BES2600_DBG_WSM, "CM %x, HM %x, FWM %x\n", change_mask,priv->sta_asleep_mask, sta_asleep_mask);
+	bes_devel("CM %x, HM %x, FWM %x\n", change_mask,priv->sta_asleep_mask, sta_asleep_mask);
 	spin_unlock_bh(&priv->ps_state_lock);
 
 	if (change_mask) {
@@ -1331,17 +1332,17 @@ static int wsm_request_buffer_confirm(struct bes2600_vif *priv,
 			/* If FW state and host state for this link are different then notify OMAC */
 			if(change_mask & mask) {
 
-				bes2600_dbg(BES2600_DBG_WSM, "PS State Changed %d for sta %pM\n", (sta_asleep_mask & mask) ? 1:0, priv->link_id_db[i].mac);
+				bes_devel("PS State Changed %d for sta %pM\n", (sta_asleep_mask & mask) ? 1:0, priv->link_id_db[i].mac);
 
 
 				rcu_read_lock();
 				sta = ieee80211_find_sta(priv->vif, priv->link_id_db[i].mac);
 				if (!sta) {
-					bes2600_err(BES2600_DBG_WSM, "[WSM] WRBC - could not find sta %pM\n",
+					bes_err("[WSM] WRBC - could not find sta %pM\n",
 							priv->link_id_db[i].mac);
 				} else {
 					ret = ieee80211_sta_ps_transition_ni(sta, (sta_asleep_mask & mask) ? true: false);
-					bes2600_dbg(BES2600_DBG_WSM, "PS State NOTIFIED %d\n", ret);
+					bes_devel("PS State NOTIFIED %d\n", ret);
 					WARN_ON(ret);
 				}
 				rcu_read_unlock();
@@ -1353,7 +1354,7 @@ static int wsm_request_buffer_confirm(struct bes2600_vif *priv,
 		spin_unlock_bh(&priv->ps_state_lock);
 	}
 
-	bes2600_dbg(BES2600_DBG_WSM, "[WSM] WRBC - HW Buf count %d SleepMask %d\n",
+	bes_devel("[WSM] WRBC - HW Buf count %d SleepMask %d\n",
 					hw_priv->hw_bufs_used, sta_asleep_mask);
 	hw_priv->buf_released = 0;
 	WARN_ON(count != (hw_priv->wsm_caps.numInpChBufs - 1));
@@ -1441,7 +1442,7 @@ static int wsm_startup_indication(struct bes2600_common *hw_priv,
 	if (WARN_ON(hw_priv->wsm_caps.firmwareType > 4))
 		return -EINVAL;
 
-	bes2600_dbg(BES2600_DBG_INIT, "BES2600 WSM init done.\n"
+	bes_devel("BES2600 WSM init done.\n"
 		"   Input buffers: %d x %d bytes\n"
 		"   Hardware: %d.%d\n"
 		"   %s firmware [%s], ver: %d, build: %d,"
@@ -1517,13 +1518,13 @@ static int wsm_receive_indication(struct bes2600_common *hw_priv,
 		}
 
 		if(rx.if_id == -1) {
-			bes2600_info(BES2600_DBG_WSM, "%s: intf is not match\n", __func__);
+			bes_devel("%s: intf is not match\n", __func__);
 			return 0;
 		}
 
 		priv = cw12xx_hwpriv_to_vifpriv(hw_priv, rx.if_id);
 		if (!priv) {
-			bes2600_info(BES2600_DBG_WSM, "%s: NULL priv drop frame\n", __func__);
+			bes_devel("%s: NULL priv drop frame\n", __func__);
 			return 0;
 		}
 
@@ -1554,7 +1555,7 @@ static int wsm_receive_indication(struct bes2600_common *hw_priv,
 				priv->signal = priv->signal_mul / 100;
 			}
 
-			bes2600_dbg(BES2600_DBG_TXRX, "pkt signal:%d\n", priv->signal);
+			bes_devel("pkt signal:%d\n", priv->signal);
 		}
 
 
@@ -1564,7 +1565,7 @@ static int wsm_receive_indication(struct bes2600_common *hw_priv,
 
 		if (!rx.status &&
 			unlikely(ieee80211_is_deauth(fctl) || ieee80211_is_disassoc(fctl))) {
-			bes2600_dbg(BES2600_DBG_WSM, "rx deauth or disassoc, priv->join_status:%u", priv->join_status);
+			bes_devel("rx deauth or disassoc, priv->join_status:%u", priv->join_status);
 			if (priv->join_status == BES2600_JOIN_STATUS_STA &&
 				(ether_addr_equal(hdr->addr3, priv->join_bssid) ||
 				 ether_addr_equal(hdr->addr3, priv->bssid))) {
@@ -1588,13 +1589,13 @@ static int wsm_receive_indication(struct bes2600_common *hw_priv,
 							mmie->length == sizeof(*mmie) - 2)
 							has_mmie = true;
 					}
-					bes2600_info(BES2600_DBG_WSM, "[WSM] RX broadcast/multicast deauth: len=%d, has_mmie:%u, pmf=%d\n",
+					bes_devel("[WSM] RX broadcast/multicast deauth: len=%d, has_mmie:%u, pmf=%d\n",
 							(*skb_p)->len, has_mmie, priv->pmf);
 					if (has_mmie ^ priv->pmf)
 						ignore = true;
 				} else if (ether_addr_equal(hdr->addr1, priv->vif->addr)) {
 					bool has_protected = ieee80211_has_protected(fctl);
-					bes2600_info(BES2600_DBG_WSM, "[WSM] RX unicast deauth: protected=%d, pmf=%d, connect_in_process=%d\n",
+					bes_devel("[WSM] RX unicast deauth: protected=%d, pmf=%d, connect_in_process=%d\n",
 							has_protected, priv->pmf, atomic_read(&priv->connect_in_process));
 					/*
 					 * We should report unprotected deauth to mac80211 for
@@ -1610,7 +1611,7 @@ static int wsm_receive_indication(struct bes2600_common *hw_priv,
 
 				if (!ignore) {
 					/* Schedule unjoin work */
-					bes2600_info(BES2600_DBG_WSM, "[WSM] Issue unjoin command (RX).\n");
+					bes_devel("[WSM] Issue unjoin command (RX).\n");
 					wsm_lock_tx_async(hw_priv);
 					if (queue_work(hw_priv->workqueue,
 								   &priv->unjoin_work) <= 0) {
@@ -1652,7 +1653,7 @@ static int wsm_event_indication(struct bes2600_common *hw_priv,
 	priv = cw12xx_hwpriv_to_vifpriv(hw_priv, interface_link_id);
 
 	if (unlikely(!priv)) {
-		bes2600_info(BES2600_DBG_WSM, "[WSM] Not find corresponding interface\n");
+		bes_devel("[WSM] Not find corresponding interface\n");
 		return 0;
 	}
 
@@ -1669,7 +1670,7 @@ static int wsm_event_indication(struct bes2600_common *hw_priv,
 	event->evt.eventData = __le32_to_cpu(WSM_GET32(buf));
 	event->if_id = interface_link_id;
 
-	bes2600_dbg(BES2600_DBG_WSM, "[WSM] Event: %d(%d)\n",
+	bes_devel("[WSM] Event: %d(%d)\n",
 		event->evt.eventId, event->evt.eventData);
 
 	spin_lock(&hw_priv->event_queue_lock);
@@ -1716,7 +1717,7 @@ static int wsm_set_pm_indication(struct bes2600_common *hw_priv,
 	if(arg.status == WSM_STATUS_SUCCESS) {
 		bes2600_pwr_notify_ps_changed(hw_priv, arg.psm);
 	} else {
-		bes2600_err(BES2600_DBG_WSM, "[WSM] PM Ind status:%d psm:%d\n", arg.status, arg.psm);
+		bes_err("[WSM] PM Ind status:%d psm:%d\n", arg.status, arg.psm);
 	}
 
 	return 0;
@@ -1793,7 +1794,7 @@ static int wsm_suspend_resume_indication(struct bes2600_common *hw_priv,
 
 		priv = cw12xx_hwpriv_to_vifpriv(hw_priv, arg.if_id);
 		if (unlikely(!priv)) {
-			bes2600_dbg(BES2600_DBG_WSM, "[WSM] suspend-resume indication"
+			bes_devel("[WSM] suspend-resume indication"
 				   " for removed interface!\n");
 			return 0;
 		}
@@ -1844,11 +1845,11 @@ int wsm_cmd_send(struct bes2600_common *hw_priv,
 	int ret;
 
 	if (cmd == 0x0006) /* Write MIB */
-		bes2600_dbg(BES2600_DBG_WSM, "[WSM] >>> 0x%.4X [MIB: 0x%.4X] (%lu)\n",
+		bes_devel("[WSM] >>> 0x%.4X [MIB: 0x%.4X] (%lu)\n",
 			cmd, __le16_to_cpu(((__le16 *)buf->begin)[2]),
 			(long unsigned)buf_len);
 	else
-		bes2600_dbg(BES2600_DBG_WSM, "[WSM] >>> 0x%.4X (%lu)\n", cmd, (long unsigned)buf_len);
+		bes_devel("[WSM] >>> 0x%.4X (%lu)\n", cmd, (long unsigned)buf_len);
 
 	/* Fill HI message header */
 	/* BH will add sequence number */
@@ -1962,7 +1963,7 @@ void wsm_lock_tx(struct bes2600_common *hw_priv)
 	wsm_cmd_lock(hw_priv);
 	if (atomic_add_return(1, &hw_priv->tx_lock) == 1) {
 		if (wsm_flush_tx(hw_priv))
-			bes2600_dbg(BES2600_DBG_WSM, "[WSM] TX is locked.\n");
+			bes_devel("[WSM] TX is locked.\n");
 	}
 	wsm_cmd_unlock(hw_priv);
 }
@@ -1974,7 +1975,7 @@ void wsm_vif_lock_tx(struct bes2600_vif *priv)
 	wsm_cmd_lock(hw_priv);
 	if (atomic_add_return(1, &hw_priv->tx_lock) == 1) {
 		if (wsm_vif_flush_tx(priv))
-			bes2600_dbg(BES2600_DBG_WSM, "[WSM] TX is locked for"
+			bes_devel("[WSM] TX is locked for"
 					" if_id %d.\n", priv->if_id);
 	}
 	wsm_cmd_unlock(hw_priv);
@@ -1983,7 +1984,7 @@ void wsm_vif_lock_tx(struct bes2600_vif *priv)
 void wsm_lock_tx_async(struct bes2600_common *hw_priv)
 {
 	if (atomic_add_return(1, &hw_priv->tx_lock) == 1)
-		bes2600_dbg(BES2600_DBG_WSM, "[WSM] TX is locked (async).\n");
+		bes_devel("[WSM] TX is locked (async).\n");
 }
 
 bool wsm_flush_tx(struct bes2600_common *hw_priv)
@@ -2005,7 +2006,7 @@ bool wsm_flush_tx(struct bes2600_common *hw_priv)
 
 	if (hw_priv->bh_error) {
 		/* In case of failure do not wait for magic. */
-		bes2600_err(BES2600_DBG_WSM, "[WSM] Fatal error occured, "
+		bes_err("[WSM] Fatal error occured, "
 				"will not flush TX.\n");
 		return false;
 	} else {
@@ -2053,7 +2054,7 @@ bool wsm_vif_flush_tx(struct bes2600_vif *priv)
 
 	if (hw_priv->bh_error) {
 		/* In case of failure do not wait for magic. */
-		bes2600_err(BES2600_DBG_WSM,  "[WSM] Fatal error occured, "
+		bes_err( "[WSM] Fatal error occured, "
 				"will not flush TX.\n");
 		return false;
 	} else {
@@ -2092,14 +2093,14 @@ void wsm_unlock_tx(struct bes2600_common *hw_priv)
 {
 	int tx_lock;
 	if (hw_priv->bh_error)
-		bes2600_err(BES2600_DBG_WSM, "fatal error occured, unlock is unsafe\n");
+		bes_err("fatal error occured, unlock is unsafe\n");
 	else {
 		tx_lock = atomic_sub_return(1, &hw_priv->tx_lock);
 		if (tx_lock < 0) {
 			BUG_ON(1);
 		} else if (tx_lock == 0) {
 			bes2600_bh_wakeup(hw_priv);
-			bes2600_dbg(BES2600_DBG_WSM, "[WSM] TX is unlocked.\n");
+			bes_devel("[WSM] TX is unlocked.\n");
 		}
 	}
 }
@@ -2224,7 +2225,7 @@ int wsm_handle_rx(struct bes2600_common *hw_priv, int id,
 	wsm_buf.data = (u8 *)&wsm[1];
 	wsm_buf.end = &wsm_buf.begin[__le32_to_cpu(wsm->len)];
 
-	bes2600_dbg(BES2600_DBG_WSM, "[WSM] <<< 0x%.4X (%ld)\n", id,
+	bes_devel("[WSM] <<< 0x%.4X (%ld)\n", id,
 			(long)(wsm_buf.end - wsm_buf.begin));
 
 	if (IS_DRIVER_TO_MCU_CMD(id))
@@ -2405,7 +2406,7 @@ int wsm_handle_rx(struct bes2600_common *hw_priv, int id,
 
 					hw_priv->beacon_bkp = NULL;
 				}
-				bes2600_dbg(BES2600_DBG_WSM, "[WSM] Send Testmode Event.\n");
+				bes_devel("[WSM] Send Testmode Event.\n");
 #ifdef CONFIG_BES2600_TESTMODE
 				bes2600_testmode_event(priv->hw->wiphy,
 					BES_MSG_NEW_SCAN_RESULTS, 0,
@@ -2598,8 +2599,7 @@ static bool wsm_handle_tx_data(struct bes2600_vif *priv,
 		 * probe responses.
 		 * The easiest way to get it back is to convert
 		 * probe request into WSM start_scan command. */
-		bes2600_dbg(BES2600_DBG_WSM,
-			"[WSM] Convert probe request to scan.\n");
+		bes_devel("[WSM] Convert probe request to scan.\n");
 		wsm_lock_tx_async(hw_priv);
 		hw_priv->pending_frame_id = __le32_to_cpu(wsm->packetID);
 		queue_delayed_work(hw_priv->workqueue,
@@ -2611,7 +2611,7 @@ static bool wsm_handle_tx_data(struct bes2600_vif *priv,
 	{
 		/* See detailed description of "join" below.
 		 * We are dropping everything except AUTH in non-joined mode. */
-		bes2600_err(BES2600_DBG_WSM, "[WSM] Drop frame (0x%.4X).\n", fctl);
+		bes_err("[WSM] Drop frame (0x%.4X).\n", fctl);
 #ifdef CONFIG_BES2600_TESTMODE
 		BUG_ON(bes2600_queue_remove(hw_priv, queue,
 			__le32_to_cpu(wsm->packetID)));
@@ -2630,7 +2630,7 @@ static bool wsm_handle_tx_data(struct bes2600_vif *priv,
 		 * but just a syncronization between AP and STA.
 		 * priv->join_status is used only in bh thread and does
 		 * not require protection */
-		bes2600_info(BES2600_DBG_WSM, "[WSM] Issue join command.\n");
+		bes_devel("[WSM] Issue join command.\n");
 		wsm_lock_tx_async(hw_priv);
 		hw_priv->pending_frame_id = __le32_to_cpu(wsm->packetID);
 
@@ -2647,7 +2647,7 @@ static bool wsm_handle_tx_data(struct bes2600_vif *priv,
 	break;
 	case doOffchannel:
 	{
-		bes2600_info(BES2600_DBG_WSM, "[WSM] Offchannel TX request.\n");
+		bes_devel("[WSM] Offchannel TX request.\n");
 		wsm_lock_tx_async(hw_priv);
 		hw_priv->pending_frame_id = __le32_to_cpu(wsm->packetID);
 		if (queue_work(hw_priv->workqueue, &priv->offchannel_work) <= 0)
@@ -2657,7 +2657,7 @@ static bool wsm_handle_tx_data(struct bes2600_vif *priv,
 	break;
 	case doWep:
 	{
-		bes2600_info(BES2600_DBG_WSM,  "[WSM] Issue set_default_wep_key.\n");
+		bes_devel( "[WSM] Issue set_default_wep_key.\n");
 		wsm_lock_tx_async(hw_priv);
 		priv->wep_default_key_id = tx_info->control.hw_key->keyidx;
 		hw_priv->pending_frame_id = __le32_to_cpu(wsm->packetID);
@@ -2694,7 +2694,7 @@ static bool wsm_handle_tx_data(struct bes2600_vif *priv,
 		if (ieee80211_is_deauth(fctl) &&
 				priv->mode != NL80211_IFTYPE_AP) {
 			/* Shedule unjoin work */
-			bes2600_info(BES2600_DBG_WSM, "[WSM] Issue unjoin command (TX).\n");
+			bes_devel("[WSM] Issue unjoin command (TX).\n");
 			atomic_set(&priv->connect_in_process, 0);
 #if 0
 			wsm->more = 0;
@@ -2962,7 +2962,7 @@ int wsm_get_tx(struct bes2600_common *hw_priv, u8 **data,
 				(struct ieee80211_hdr *)
 					&((u8 *)wsm)[txpriv->offset];
 
-				bes2600_dbg(BES2600_DBG_WSM, "QGET-1 %x, off_id %d,"
+				bes_devel("QGET-1 %x, off_id %d,"
 						   " if_id %d\n",
 						hdr->frame_control,
 						txpriv->offchannel_if_id,
@@ -2998,7 +2998,7 @@ int wsm_get_tx(struct bes2600_common *hw_priv, u8 **data,
 				(struct ieee80211_hdr *)
 					&((u8 *)wsm)[txpriv->offset];
 
-				bes2600_dbg(BES2600_DBG_WSM, "QGET-2 %x, off_id %d,"
+				bes_devel("QGET-2 %x, off_id %d,"
 						   " if_id %d\n",
 						hdr->frame_control,
 						txpriv->offchannel_if_id,
@@ -3043,7 +3043,7 @@ int wsm_get_tx(struct bes2600_common *hw_priv, u8 **data,
 					cpu_to_le16(IEEE80211_FCTL_MOREDATA);
 				}
 			}
-			bes2600_dbg(BES2600_DBG_WSM, "[WSM] >>> 0x%.4X (%lu) %p %c\n",
+			bes_devel("[WSM] >>> 0x%.4X (%lu) %p %c\n",
 				0x0004, (long unsigned)*tx_len, *data,
 				wsm->more ? 'M' : ' ');
 			++count;

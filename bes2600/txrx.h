@@ -54,7 +54,6 @@ struct tx_policy_cache {
  * linux tx retry sequences with a retry policy table in the device.
  */
 void tx_policy_init(struct bes2600_common *hw_priv);
-void tx_policy_deinit(struct bes2600_common *hw_priv);
 void tx_policy_upload_work(struct work_struct *work);
 
 /* ******************************************************************** */

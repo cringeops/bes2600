@@ -20,6 +20,7 @@
 
 #include <linux/wait.h>
 #include <linux/mutex.h>
+#include <linux/device.h>
 #include <linux/workqueue.h>
 #include <linux/sched.h>
 #include <linux/atomic.h>
@@ -52,9 +53,9 @@
 #include "ht.h"
 #include "pm.h"
 #include "fwio.h"
-#include "bes2600_log.h"
 #include "bes_pwr.h"
 #include "tx_loop.h"
+#include "bes_log.h"
 #ifdef CONFIG_BES2600_TESTMODE
 #include "bes_nl80211_testmode_msg.h"
 #endif /*CONFIG_BES2600_TESTMODE*/

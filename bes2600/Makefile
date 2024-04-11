@@ -4,6 +4,8 @@ BES2600                                 ?= m
 
 CONFIG_BES2600_TESTMODE                 ?= n
 
+CONFIG_BES2600_ENABLE_DEVEL_LOGS        ?= n
+
 CONFIG_BES2600_WAPI_SUPPORT             ?= n
 CONFIG_BES2600_STA_DEBUG                ?= y
 CONFIG_BES2600_STATIC_SDD               ?= y
@@ -206,7 +208,6 @@ bes2600-y := \
 	txrx_opt.o \
 	bes_chardev.o \
 	tx_loop.o \
-	bes2600_log.o \
 	bes_fw.o \
 	bes_fw_common.o \
 	bes2600_factory.o \

@@ -22,6 +22,7 @@
 #include "sta.h"
 #include "sbus.h"
 #include "txrx_opt.h"
+#include "bes_log.h"
 
 #define BES2600_INVALID_RATE_ID (0xFF)
 
@@ -37,7 +38,7 @@ bes2600_get_tx_rate(const struct bes2600_common *hw_priv,
 
 static void tx_policy_dump(struct tx_policy *policy)
 {
-	bes2600_dbg(BES2600_DBG_TX_POLICY, "[TX policy] "
+	bes_devel("[TX policy] "
 		"%.1X%.1X%.1X%.1X%.1X%.1X%.1X%.1X"
 		"%.1X%.1X%.1X%.1X%.1X%.1X%.1X%.1X"
 		"%.1X%.1X%.1X%.1X%.1X%.1X%.1X%.1X: %d\n",
@@ -268,7 +269,7 @@ static void tx_policy_build(const struct bes2600_common *hw_priv,
 
 	if (rates[0].idx !=  tx_rate_idx) {
 		tx_rate_idx = rates[0].idx;
-		bes2600_dbg(BES2600_DBG_TXRX_OPT, "[TX policy] Policy (%lu): " \
+		bes_devel("[TX policy] Policy (%lu): " \
 			    "%d:%d, %d:%d, %d:%d, %d:%d, %d:%d\n",
 			    (long unsigned)count,
 			    rates[0].idx, rates[0].count,
@@ -340,7 +341,7 @@ void tx_policy_init(struct bes2600_common *hw_priv)
 	struct tx_policy_cache *cache = &hw_priv->tx_policy_cache;
 	int i;
 
-	bes2600_dbg(BES2600_DBG_TXRX_OPT, "tx_policy_init\n\r");
+	bes_devel("tx_policy_init\n\r");
 
 	memset(cache, 0, sizeof(*cache));
 
@@ -350,11 +351,6 @@ void tx_policy_init(struct bes2600_common *hw_priv)
 
 	for (i = 0; i < TX_POLICY_CACHE_SIZE; ++i)
 		list_add(&cache->cache[i].link, &cache->free);
-}
-
-void tx_policy_deinit(struct bes2600_common *hw_priv)
-{
-	bes2600_dbg(BES2600_DBG_TXRX_OPT, "tx_policy_deinit\n\r");
 }
 
 static int tx_policy_get(struct bes2600_common *hw_priv,
@@ -374,8 +370,7 @@ static int tx_policy_get(struct bes2600_common *hw_priv,
 	}
 	idx = tx_policy_find(cache, &wanted);
 	if (idx >= 0) {
-		bes2600_dbg(BES2600_DBG_TX_POLICY, "[TX policy] Used TX policy: %d\n",
-					idx);
+		bes_devel("[TX policy] Used TX policy: %d\n", idx);
 		*renew = false;
 	} else {
 		struct tx_policy_cache_entry *entry;
@@ -386,8 +381,7 @@ static int tx_policy_get(struct bes2600_common *hw_priv,
 			struct tx_policy_cache_entry, link);
 		entry->policy = wanted;
 		idx = entry - cache->cache;
-		bes2600_dbg(BES2600_DBG_TX_POLICY, "[TX policy] New TX policy: %d\n",
-					idx);
+		bes_devel("[TX policy] New TX policy: %d\n", idx);
 		tx_policy_dump(&entry->policy);
 	}
 	tx_policy_use(cache, &cache->cache[idx]);
@@ -464,8 +458,7 @@ static int tx_policy_upload(struct bes2600_common *hw_priv)
 	}
 	spin_unlock_bh(&cache->lock);
 	//bes2600_debug_tx_cache_miss(hw_priv);
-	bes2600_dbg(BES2600_DBG_TX_POLICY, "[TX policy] Upload %d policies\n",
-				arg.hdr.numTxRatePolicies);
+	bes_devel("[TX policy] Upload %d policies\n", arg.hdr.numTxRatePolicies);
 	/*TODO: COMBO*/
 	return wsm_set_tx_rate_retry_policy(hw_priv, &arg, if_id);
 }
@@ -475,7 +468,7 @@ void tx_policy_upload_work(struct work_struct *work)
 	struct bes2600_common *hw_priv =
 		container_of(work, struct bes2600_common, tx_policy_upload_work);
 
-	bes2600_dbg(BES2600_DBG_TX_POLICY, "[TX] TX policy upload.\n");
+	bes_devel("[TX] TX policy upload.\n");
 	WARN_ON(tx_policy_upload(hw_priv));
 
 	wsm_unlock_tx(hw_priv);
@@ -819,8 +812,7 @@ bes2600_tx_h_bt(struct bes2600_vif *priv,
 
 		if (mgt_frame->u.assoc_req.listen_interval <
 						priv->listen_interval) {
-			bes2600_dbg(BES2600_DBG_TX_POLICY,
-				"Modified Listen Interval to %d from %d\n",
+			bes_devel("Modified Listen Interval to %d from %d\n",
 				priv->listen_interval,
 				mgt_frame->u.assoc_req.listen_interval);
 			/* Replace listen interval derieved from
@@ -843,8 +835,7 @@ bes2600_tx_h_bt(struct bes2600_vif *priv,
 			priority = WSM_EPTA_PRIORITY_DATA;
 	}
 
-	bes2600_dbg(BES2600_DBG_TXRX, "[TX] EPTA priority %d.\n",
-		priority);
+	bes_devel("[TX] EPTA priority %d.\n", priority);
 
 	wsm->flags |= priority << 1;
 }
@@ -880,7 +871,7 @@ bes2600_tx_h_rate_policy(struct bes2600_common *hw_priv,
 	}
 
 	if (tx_policy_renew) {
-		bes2600_dbg(BES2600_DBG_TX_POLICY, "[TX] TX policy renew.\n");
+		bes_devel("[TX] TX policy renew.\n");
 		/* It's not so optimal to stop TX queues every now and then.
 		 * Maybe it's better to reimplement task scheduling with
 		 * a counter. */
@@ -985,7 +976,7 @@ static int extract_ip_headers_info(struct bes2600_common *hw_priv, struct bes260
 	uint32_t src_ip, dst_ip;
 	struct ip_alive_cfg *iac = hw_priv->iac;
 
-	bes2600_dbg_dump(BES2600_DBG_TEST_MODE, "iphdr:", iphdr, 64);
+	print_hex_dump(KERN_DEBUG, "iphdr:", DUMP_PREFIX_NONE, 16, 1, iphdr, 64, false);
 
 	/* Frame Control Flags, bit6: 1 for protected frame and 0 for non-protected frame; */
 	((iphdr[1] >> 6) & 0x1) ? (offset = 40) : (offset = 32);
@@ -1016,12 +1007,12 @@ static int extract_ip_headers_info(struct bes2600_common *hw_priv, struct bes260
 				iac[idx].bd.next_seqno = iac[idx].tcphd.seqno + tcp_bd_len;
 				memcpy(iac[idx].bd.dest_mac, ((struct ieee80211_hdr *)iphdr)->addr3, 6);
 
-				bes2600_dbg(BES2600_DBG_TEST_MODE, "src-ip:%x dest-ip:%x src-port:%d dest-port:%d\n",
+				bes_devel("src-ip:%x dest-ip:%x src-port:%d dest-port:%d\n",
 				                   iac[idx].iphd.src,
 				                   iac[idx].iphd.dest,
 				                   iac[idx].tcphd.src,
 				                   iac[idx].tcphd.dest);
-				bes2600_dbg(BES2600_DBG_TEST_MODE, "seqno:%u ackno:%u\n", iac[idx].tcphd.seqno, iac[idx].tcphd.ackno);
+				bes_devel("seqno:%u ackno:%u\n", iac[idx].tcphd.seqno, iac[idx].tcphd.ackno);
 			}
 		}
 		else if (_proto == UDP_PROTO) {
@@ -1146,7 +1137,7 @@ void bes2600_tx(struct ieee80211_hw *dev,
 	if (ret)
 		goto drop;
 
-	bes2600_dbg(BES2600_DBG_TXRX, "[TX] TX %d bytes (if_id: %d,"
+	bes_devel("[TX] TX %d bytes (if_id: %d,"
 			" queue: %d, link_id: %d (%d)).\n",
 			skb->len, priv->if_id, t.queue, t.txpriv.link_id,
 			t.txpriv.raw_link_id);
@@ -1196,8 +1187,7 @@ void bes2600_tx(struct ieee80211_hw *dev,
 		if (skb->sk)
 			sk_pacing_shift_update(skb->sk, 7);
 
-		bes2600_dbg(BES2600_DBG_ROC, "QPUT %x, %pM, if_id - %d\n",
-			t.hdr->frame_control, t.da, priv->if_id);
+		bes_devel("QPUT %x, %pM, if_id - %d\n", t.hdr->frame_control, t.da, priv->if_id);
 	}
 	spin_unlock_bh(&priv->ps_state_lock);
 
@@ -1263,7 +1253,7 @@ static int bes2600_handle_pspoll(struct bes2600_vif *priv,
 			break;
 		}
 	}
-	bes2600_info(BES2600_DBG_TXRX, "[RX] PSPOLL: %s\n", drop ? "local" : "fwd");
+	bes_info("[RX] PSPOLL: %s\n", drop ? "local" : "fwd");
 done:
 	return drop;
 }
@@ -1282,7 +1272,7 @@ void bes2600_tx_confirm_cb(struct bes2600_common *hw_priv,
 	u16 pkt_delay;
 #endif
 
-	bes2600_dbg(BES2600_DBG_TXRX, "[TX] TX confirm: %d, %d.\n",
+	bes_devel("[TX] TX confirm: %d, %d.\n",
 		arg->status, arg->ackFailures);
 
 	if (unlikely(bes2600_itp_tx_running(hw_priv)))
@@ -1303,8 +1293,7 @@ void bes2600_tx_confirm_cb(struct bes2600_common *hw_priv,
 	}
 
 	if (arg->status)
-		bes2600_dbg(BES2600_DBG_TXRX, "TX failed: %d.\n",
-				arg->status);
+		bes_devel("TX failed: %d.\n", arg->status);
 
 #ifdef CONFIG_BES2600_TESTMODE
 	spin_lock_bh(&hw_priv->tsm_lock);
@@ -1323,9 +1312,7 @@ void bes2600_tx_confirm_cb(struct bes2600_common *hw_priv,
 				hw_priv->tsm_info.txconf_timestamp_vo;
 				if (hw_priv->tsm_info.roam_delay > pkt_delay)
 					hw_priv->tsm_info.roam_delay -= pkt_delay;
-				bes2600_info(BES2600_DBG_TEST_MODE, "[TX] txConf"
-				"Roaming: roam_delay = %u\n",
-				hw_priv->tsm_info.roam_delay);
+				bes_info("[TX] txConf Roaming: roam_delay = %u\n", hw_priv->tsm_info.roam_delay);
 				hw_priv->tsm_info.sta_roamed = 0;
 			}
 			hw_priv->tsm_info.rx_timestamp_vo = tmval.tv_nsec / 1000;
@@ -1374,7 +1361,7 @@ void bes2600_tx_confirm_cb(struct bes2600_common *hw_priv,
 
 #ifndef P2P_MULTIVIF
 		if (txpriv->offchannel_if_id)
-			bes2600_dbg(BES2600_DBG_ROC, "TX CONFIRM %x - %d - %d\n",
+			bes_devel("TX CONFIRM %x - %d - %d\n",
 				skb->data[txpriv->offset],
 				txpriv->offchannel_if_id, arg->status);
 #endif
@@ -1506,7 +1493,7 @@ void bes2600_skb_dtor(struct bes2600_common *hw_priv,
 /* TODO It should be removed before official delivery */
 static void frame_hexdump(char *prefix, u8 *data, int len)
 {
-	bes2600_dbg_dump(BES2600_DBG_TXRX, prefix, data, len);
+	print_hex_dump(KERN_DEBUG, prefix, DUMP_PREFIX_NONE, 16, 1, data, len, false);
 }
 /**
  * bes2600_tunnel_send_testmode_data - Send test frame to the driver
@@ -1548,7 +1535,7 @@ static int bes2600_frame_test_detection(struct bes2600_vif *priv,
 	    memcmp(skb->data + hdrlen, hw_priv->test_frame.data,
 		   hw_priv->test_frame.len) == 0) {
 		detected = 1;
-		bes2600_dbg(BES2600_DBG_TEST_MODE, "TEST FRAME detected");
+		bes_devel("TEST FRAME detected");
 		frame_hexdump("TEST FRAME original:", skb->data, skb->len);
 		ret = ieee80211_data_to_8023(skb, hw_priv->mac_addr,
 				priv->mode);
@@ -1557,7 +1544,7 @@ static int bes2600_frame_test_detection(struct bes2600_vif *priv,
 			ret = bes2600_tunnel_send_testmode_data(hw_priv, skb);
 		}
 		if (ret)
-			bes2600_err(BES2600_DBG_TEST_MODE, "Send TESTFRAME failed(%d)", ret);
+			bes_err("Send TESTFRAME failed(%d)", ret);
 	}
 	return detected;
 }
@@ -1636,8 +1623,7 @@ void bes2600_rx_cb(struct bes2600_vif *priv,
 				hw_priv->tsm_info.use_rx_roaming) {
 				hw_priv->tsm_info.roam_delay = tmval.tv_nsec / 1000 -
 					hw_priv->tsm_info.rx_timestamp_vo;
-				bes2600_dbg(BES2600_DBG_TEST_MODE, "[RX] RxInd Roaming:"
-				"roam_delay = %u\n", hw_priv->tsm_info.roam_delay);
+				bes_devel("[RX] RxInd Roaming: roam_delay = %u\n", hw_priv->tsm_info.roam_delay);
 				hw_priv->tsm_info.sta_roamed = 0;
 			}
 			hw_priv->tsm_info.rx_timestamp_vo = tmval.tv_nsec / 1000;
@@ -1658,7 +1644,7 @@ void bes2600_rx_cb(struct bes2600_vif *priv,
 			&& (priv->vif->p2p == WSM_START_MODE_P2P_GO)
 			&& ieee80211_is_action(frame->frame_control)
 			&& (mgmt->u.action.category == WLAN_CATEGORY_PUBLIC)) {
-		bes2600_dbg(BES2600_DBG_TXRX, "[RX] Going to MAP&RESET link ID\n");
+		bes_devel("[RX] Going to MAP&RESET link ID\n");
 
 		if (work_pending(&priv->linkid_reset_work))
 			WARN_ON(1);
@@ -1685,14 +1671,13 @@ void bes2600_rx_cb(struct bes2600_vif *priv,
 #endif
 	if (unlikely(arg->status)) {
 		if (arg->status == WSM_STATUS_MICFAILURE) {
-			bes2600_warn(BES2600_DBG_TXRX, "[RX] MIC failure.\n");
+			bes_warn("[RX] MIC failure.\n");
 			hdr->flag |= RX_FLAG_MMIC_ERROR;
 		} else if (arg->status == WSM_STATUS_NO_KEY_FOUND) {
-			bes2600_dbg(BES2600_DBG_TXRX, "[RX] No key found.\n");
+			bes_devel("[RX] No key found.\n");
 			goto drop;
 		} else {
-			bes2600_warn(BES2600_DBG_TXRX, "[RX] Receive failure: %d.\n",
-				arg->status);
+			bes_warn("[RX] Receive failure: %d.\n", arg->status);
 			goto drop;
 		}
 	}
@@ -1857,7 +1842,7 @@ void bes2600_rx_cb(struct bes2600_vif *priv,
 				dev_kfree_skb(hw_priv->beacon);
 			hw_priv->beacon = skb_copy(skb, GFP_ATOMIC);
 			if (!hw_priv->beacon)
-				bes2600_err(BES2600_DBG_TXRX, "bes2600: sched_scan: own beacon storing failed\n");
+				bes_err("bes2600: sched_scan: own beacon storing failed\n");
 		}
 	}
 #endif /*ROAM_OFFLOAD*/

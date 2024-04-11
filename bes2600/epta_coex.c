@@ -14,6 +14,7 @@
 #include "bes2600.h"
 #include "epta_coex.h"
 #include "epta_request.h"
+#include "bes_log.h"
 
 static bool coex_ps_en;
 static bool coex_fdd_mode;  /* fdd or fdd hybrid */
@@ -47,15 +48,15 @@ int coex_set_epta_params(struct bes2600_common *hw_priv, int wlan_duration, int 
 	struct wsm_epta_msg msg;
 
 	if (hw_priv == NULL) {
-		bes2600_dbg(BES2600_DBG_EPTA, "hw_priv is NULL\n");
+		bes_devel("hw_priv is NULL\n");
 		return -1;
 	}
 
-	bes2600_dbg(BES2600_DBG_EPTA, "set epta w:%d hw:%d wc:%d fbit:%x fw:%d\n", wlan_duration, hw_epta_enable,
+	bes_devel("set epta w:%d hw:%d wc:%d fbit:%x fw:%d\n", wlan_duration, hw_epta_enable,
 		   wlan_duration_cfg, epta_freeze_bitmap, epta_freezed_wlan_duration_cfg);
 
 	if (wlan_duration_cfg == wlan_duration && bt_duration_cfg == bt_duration && hw_epta_enable_cfg == hw_epta_enable) {
-		bes2600_dbg(BES2600_DBG_EPTA, "same epta params\n");
+		bes_devel("same epta params\n");
 		return 0;
 	}
 
@@ -66,7 +67,7 @@ int coex_set_epta_params(struct bes2600_common *hw_priv, int wlan_duration, int 
 	/* If in freeze mode, use freezed wlan duration; */
 	if (epta_freeze_bitmap) {
 		if (epta_freeze_bitmap & EPTA_FREEZE_SCANNING) {
-			bes2600_info(BES2600_DBG_EPTA, "skip bt state in wifi scanning");
+			bes_devel("skip bt state in wifi scanning");
 			return 0;
 		}
 
@@ -75,7 +76,7 @@ int coex_set_epta_params(struct bes2600_common *hw_priv, int wlan_duration, int 
 		 if new wlan duration is less than freezed one, update fw settings with freezed duration
 		*/
 		if (wlan_duration < epta_freezed_wlan_duration_cfg) {
-			bes2600_info(BES2600_DBG_EPTA, "epta_freeze_bitmap:0x%x, wlan:%u < %u",
+			bes_devel("epta_freeze_bitmap:0x%x, wlan:%u < %u",
 				epta_freeze_bitmap, wlan_duration, epta_freezed_wlan_duration_cfg);
 			wlan_duration = epta_freezed_wlan_duration_cfg;
 			bt_duration = EPTA_FREEZE_TDD_PERIOD - epta_freezed_wlan_duration_cfg;
@@ -100,14 +101,14 @@ static int coex_epta_freeze_update(struct bes2600_common *hw_priv)
 	int max_freeze = 0;
 
 	if (hw_priv == NULL) {
-		bes2600_dbg(BES2600_DBG_EPTA, "hw_priv is NULL\n");
+		bes_devel("hw_priv is NULL\n");
 		return -1;
 	}
 
-	bes2600_dbg(BES2600_DBG_EPTA, "epta update. bitmap:0x%x. fw:%d",
+	bes_devel("epta update. bitmap:0x%x. fw:%d",
 		epta_freeze_bitmap, epta_freezed_wlan_duration_cfg);
 
-	bes2600_dbg(BES2600_DBG_EPTA, "%s, %d", __FUNCTION__, hw_epta_enable_cfg);
+	bes_devel("%s, %d", __FUNCTION__, hw_epta_enable_cfg);
 
 	/* Exit freeze mode and recover the configuration of epta module; */
 	if (epta_freeze_bitmap == 0) {
@@ -174,14 +175,14 @@ static int coex_epta_recover_update(struct bes2600_common *hw_priv)
 	int max_freeze = 0;
 
 	if (hw_priv == NULL) {
-		bes2600_dbg(BES2600_DBG_EPTA, "hw_priv is NULL\n");
+		bes_devel("hw_priv is NULL\n");
 		return -1;
 	}
 
-	bes2600_dbg(BES2600_DBG_EPTA, "epta update. bitmap:0x%x. fw:%d",
+	bes_devel("epta update. bitmap:0x%x. fw:%d",
 		epta_freeze_bitmap, epta_freezed_wlan_duration_cfg);
 
-	bes2600_dbg(BES2600_DBG_EPTA, "%s, %d", __FUNCTION__, hw_epta_enable_cfg);
+	bes_devel("%s, %d", __FUNCTION__, hw_epta_enable_cfg);
 
 	/* Exit freeze mode and recover the configuration of epta module; */
 	if (epta_freeze_bitmap == 0) {
@@ -236,7 +237,7 @@ static int coex_epta_ps(struct bes2600_common *hw_priv, uint8_t enable)
 {
 	struct wsm_epta_msg msg;
 	if (hw_priv == NULL) {
-		bes2600_dbg(BES2600_DBG_EPTA, "hw_priv is NULL\n");
+		bes_devel("hw_priv is NULL\n");
 		return -1;
 	}
 
@@ -261,7 +262,7 @@ static int coex_epta_set_connect(struct bes2600_common *hw_priv, int wlan_durati
 {
 	struct wsm_epta_msg msg;
 	if (!hw_priv) {
-		bes2600_dbg(BES2600_DBG_EPTA, "hw_priv is NULL\n");
+		bes_devel("hw_priv is NULL\n");
 		return -1;
 	}
 	if (epta != 4) {
@@ -292,7 +293,7 @@ static void coex_set_wifi_state_to_fw(struct bes2600_common *hw_priv, uint8_t ep
 		return;
 	}
 
-	bes2600_dbg(BES2600_DBG_EPTA, "%s state%u\r", __func__, last_state);
+	bes_devel("%s state%u\r", __func__, last_state);
 
 	switch (last_state) {
 	case EPTA_STATE_WIFI_DISCONNECTED:
@@ -311,20 +312,20 @@ void coex_set_wifi_conn(struct bes2600_common *hw_priv, uint8_t connect_status)
 {
 	if (connect_status != EPTA_STATE_WIFI_SCAN_COMP) {
 		if (epta_conn_state == connect_status) {
-			bes2600_dbg(BES2600_DBG_EPTA, "same connect_status:%d\r", connect_status);
+			bes_devel("same connect_status:%d\r", connect_status);
 			return;
 		}
 	}
 
 	if (connect_status == EPTA_STATE_WIFI_GOT_IP) {
 		if (epta_conn_state == EPTA_STATE_WIFI_DISCONNECTED || epta_conn_state == EPTA_STATE_WIFI_CONNECTING) {
-			bes2600_dbg(BES2600_DBG_EPTA, "ignore got ip in disconnected\r");
+			bes_devel("ignore got ip in disconnected\r");
 			return;
 		}
 	}
 	epta_conn_state = connect_status;
 
-	bes2600_dbg(BES2600_DBG_EPTA, "%s connect_status=%d coex_mode=%d\r", __func__, connect_status, g_coex_mode);
+	bes_devel("%s connect_status=%d coex_mode=%d\r", __func__, connect_status, g_coex_mode);
 
 	coex_set_wifi_state_to_fw(hw_priv, epta_conn_state);
 
@@ -383,7 +384,7 @@ void coex_set_wifi_conn(struct bes2600_common *hw_priv, uint8_t connect_status)
 
 bool coex_is_wifi_inactive()
 {
-	bes2600_dbg(BES2600_DBG_EPTA, "%s, epta_conn_state:%d", __FUNCTION__, epta_conn_state);
+	bes_devel("%s, epta_conn_state:%d", __FUNCTION__, epta_conn_state);
 	return epta_conn_state == EPTA_STATE_WIFI_DISCONNECTED;
 }
 /*
@@ -409,7 +410,7 @@ static void coex_set_epta_thp(struct bes2600_common *hw_priv, uint32_t total_bps
 	if (coex_fdd_mode && epta_conn_state >= EPTA_STATE_WIFI_GOT_IP)
 		return;
 
-	//bes2600_dbg(BES2600_DBG_EPTA, "coex_set_epta_thp %d bt_state %d epta_freeze_bitmap=%d epta_adjust_cnt=%d coex_ps_en=%d fw=%d\n",
+	//bes_devel("coex_set_epta_thp %d bt_state %d epta_freeze_bitmap=%d epta_adjust_cnt=%d coex_ps_en=%d fw=%d\n",
 	//       total_bps, coex_bt_state, epta_freeze_bitmap, epta_adjust_cnt, coex_ps_en, epta_freezed_wlan_duration_cfg);
 
 	/* sniffer mode always work with ble and tts, need adjust more quickly */
@@ -446,7 +447,7 @@ static void coex_set_epta_thp(struct bes2600_common *hw_priv, uint32_t total_bps
 
 // void coex_band_update(struct bes2600_common *hw_priv, enum nl80211_band band)
 // {
-// 	bes2600_info(BES2600_DBG_EPTA, "coex_band_update band:%u\n", (uint32_t)band);
+// 	bes_devel("coex_band_update band:%u\n", (uint32_t)band);
 // }
 
 void coex_rssi_update(struct bes2600_common *hw_priv, int rssi, int channel, int connected)
@@ -456,7 +457,7 @@ void coex_rssi_update(struct bes2600_common *hw_priv, int rssi, int channel, int
 	if (g_coex_mode == 0 || // tdd
 		g_coex_mode == (WIFI_COEX_MODE_FDD_HYBRID_BIT | WIFI_COEX_MODE_FDD_BIT)) {
 
-		bes2600_info(BES2600_DBG_EPTA, "coex_rssi_update rssi:%d, ch:%d, con:%d\n",
+		bes_devel("coex_rssi_update rssi:%d, ch:%d, con:%d\n",
 			rssi, channel, connected);
 		if (channel > 14) {
 			fdd_en = 1;
@@ -476,7 +477,7 @@ void coex_rssi_update(struct bes2600_common *hw_priv, int rssi, int channel, int
 
 void coex_set_bt_state(struct bes2600_common *hw_priv, int state)
 {
-	bes2600_info(BES2600_DBG_EPTA, "coex_set_bt_state %d\n", state);
+	bes_devel("coex_set_bt_state %d\n", state);
 	coex_bt_state = state;
 }
 
@@ -504,32 +505,32 @@ void coex_set_fdd_mode(bool fdd_mode)
 {
 	if (g_coex_mode == 0 || // tdd
 		g_coex_mode == (WIFI_COEX_MODE_FDD_HYBRID_BIT | WIFI_COEX_MODE_FDD_BIT)) { //hybrid
-		bes2600_dbg(BES2600_DBG_EPTA, "%s, %d", __FUNCTION__, fdd_mode);
+		bes_devel("%s, %d", __FUNCTION__, fdd_mode);
 		coex_fdd_mode = fdd_mode;
 	}
 }
 
 bool coex_is_fdd_mode()
 {
-	bes2600_dbg(BES2600_DBG_EPTA, "%s, %d", __FUNCTION__, coex_fdd_mode);
+	bes_devel("%s, %d", __FUNCTION__, coex_fdd_mode);
 	return coex_fdd_mode;
 }
 
 bool coex_is_bt_a2dp()
 {
-	bes2600_dbg(BES2600_DBG_EPTA, "%s, coex_bt_state:%d", __FUNCTION__, coex_bt_state);
+	bes_devel("%s, coex_bt_state:%d", __FUNCTION__, coex_bt_state);
 	return coex_bt_state == 3;
 }
 
 bool coex_is_bt_inactive()
 {
-	bes2600_dbg(BES2600_DBG_EPTA, "%s, coex_bt_state:%d", __FUNCTION__, coex_bt_state);
+	bes_devel("%s, coex_bt_state:%d", __FUNCTION__, coex_bt_state);
 	return coex_bt_state == 0;
 }
 
 int coex_init_mode(struct bes2600_common *hw_priv, int coex_mode)
 {
-	bes2600_info(BES2600_DBG_EPTA, "coex_init_mode coex_mode %d\n", coex_mode);
+	bes_devel("coex_init_mode coex_mode %d\n", coex_mode);
 
 	g_coex_mode = coex_mode;
 
@@ -544,7 +545,7 @@ int coex_init_mode(struct bes2600_common *hw_priv, int coex_mode)
 
 int coex_deinit_mode(struct bes2600_common *hw_priv)
 {
-	bes2600_info(BES2600_DBG_EPTA, "coex_deinit_mode\n");
+	bes_devel("coex_deinit_mode\n");
 
 	coex_wifi_bt_ts_thread_deinit(hw_priv);
 
@@ -553,7 +554,7 @@ int coex_deinit_mode(struct bes2600_common *hw_priv)
 
 int coex_start(struct bes2600_common *hw_priv)
 {
-	bes2600_info(BES2600_DBG_EPTA, "%s\n", __FUNCTION__);
+	bes_devel("%s\n", __FUNCTION__);
 
 	coex_ps_en = false;
 	if (g_coex_mode & WIFI_COEX_MODE_FDD_BIT)
@@ -575,6 +576,6 @@ int coex_start(struct bes2600_common *hw_priv)
 
 int coex_stop(struct bes2600_common *hw_priv)
 {
-	bes2600_info(BES2600_DBG_EPTA, "%s\n", __FUNCTION__);
+	bes_devel("%s\n", __FUNCTION__);
 	return 0;
 }
