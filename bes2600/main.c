@@ -558,20 +558,11 @@ static int bes2600_register_common(struct ieee80211_hw *dev)
 		return err;
 	}
 
-#ifdef CONFIG_BES2600_LEDS
-	err = bes2600_init_leds(priv);
-	if (err) {
-		bes2600_pm_deinit(&hw_priv->pm_state);
-		ieee80211_unregister_hw(dev);
-		return err;
-	}
-#endif /* CONFIG_BES2600_LEDS */
-
 	bes2600_debug_init_common(hw_priv);
 #ifdef CONFIG_PM
 	bes2600_register_pm_notifier(hw_priv);
 #endif /* CONFIG_PM */
-	bes_info("is registered as '%s'\n", wiphy_name(dev->wiphy));
+	bes_info("registered as '%s'\n", wiphy_name(dev->wiphy));
 	return 0;
 }
 
@@ -608,9 +599,6 @@ static void bes2600_unregister_common(struct ieee80211_hw *dev)
 #ifdef CONFIG_PM
 	bes2600_unregister_pm_notifier(hw_priv);
 #endif /* CONFIG_PM */
-#ifdef CONFIG_BES2600_LEDS
-	bes2600_unregister_leds(hw_priv);
-#endif /* CONFIG_BES2600_LEDS */
 
 	wsm_buf_deinit(&hw_priv->wsm_cmd_buf);
 	destroy_workqueue(hw_priv->workqueue);
