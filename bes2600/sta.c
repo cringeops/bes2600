@@ -172,7 +172,6 @@ int bes2600_start(struct ieee80211_hw *dev)
 	spin_unlock_bh(&hw_priv->tsm_lock);
 #endif /*CONFIG_BES2600_TESTMODE*/
 	memcpy(hw_priv->mac_addr, dev->wiphy->perm_addr, ETH_ALEN);
-	hw_priv->softled_state = 0;
 
 	atomic_inc(&hw_priv->netdevice_start);
 #ifdef WIFI_BT_COEXIST_EPTA_ENABLE
@@ -225,9 +224,6 @@ void bes2600_stop(struct ieee80211_hw *dev)
 	del_timer_sync(&hw_priv->ba_timer);
 
 	down(&hw_priv->conf_lock);
-
-	hw_priv->softled_state = 0;
-	/* bes2600_set_leds(hw_priv); */
 
 	spin_lock(&hw_priv->event_queue_lock);
 	list_splice_init(&hw_priv->event_queue, &list);

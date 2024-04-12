@@ -445,9 +445,6 @@ struct bes2600_common {
 
 	/* cryptographic engine information */
 
-	/* bit field of glowing LEDs */
-	u16 softled_state;
-
 	/* statistics */
 	struct ieee80211_low_level_stats stats;
 

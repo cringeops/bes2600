@@ -209,8 +209,6 @@ static int bes2600_status_show_common(struct seq_file *seq, void *v)
 
 	seq_printf(seq, "Scan:       %s\n",
 		atomic_read(&hw_priv->scan.in_progress) ? "active" : "idle");
-	seq_printf(seq, "Led state:  0x%.2X\n",
-		hw_priv->softled_state);
 
 	return 0;
 }
