@@ -2,6 +2,22 @@
 If you are here, you know exactly why you are here.
 
 ## How to build?
+### On the PineTab2 itself
+0. Install the build tools and kernel headers, if not already done:
+```
+sudo pacman -S base-devel git linux-pinetab2-headers
+```
+1. Build the module
+```
+cd path/to/bes2600
+make -C /lib/modules/$(uname -r)/build M=$PWD modules
+```
+2. Load the module
+```
+sudo modprobe ./bes2600/bes2600.ko
+```
+
+### On another machine
 1. Build the danctnix kernel with bes2600 enabled
 2. Build the module
 ```
