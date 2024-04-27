@@ -32,7 +32,6 @@
 #include "pm.h"
 #include "bes2600_factory.h"
 #include "bes_chardev.h"
-#include "txrx_opt.h"
 
 MODULE_AUTHOR("Dmitry Tarnyagin <dmitry.tarnyagin@stericsson.com>");
 MODULE_DESCRIPTION("Softmac BES2600 common code");

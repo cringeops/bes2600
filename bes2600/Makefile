@@ -205,7 +205,6 @@ bes2600-y := \
 	sta.o \
 	ap.o \
 	scan.o \
-	txrx_opt.o \
 	bes_chardev.o \
 	tx_loop.o \
 	bes_fw.o \

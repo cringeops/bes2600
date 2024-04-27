@@ -17,7 +17,6 @@
 #include <linux/umh.h>
 #include "epta_request.h"
 #include "epta_coex.h"
-#include "txrx_opt.h"
 
 #ifdef AP_HT_CAP_UPDATE
 #define HT_INFO_OFFSET 4
