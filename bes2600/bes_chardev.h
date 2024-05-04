@@ -91,4 +91,6 @@ u8* bes2600_alloc_dpd_log_buffer(u16 len);
 void bes2600_get_dpd_log(char **data, size_t *len);
 #endif
 
+int bes2600_switch_bt(bool);
+
 #endif /* __BES_CHARDEV_H__ */

@@ -196,7 +196,7 @@ static int bes2600_switch_wifi(bool on)
 	return ret;
 }
 
-static int bes2600_switch_bt(bool on)
+int bes2600_switch_bt(bool on)
 {
 	int ret = 0;
 	long status = 0;
@@ -229,11 +229,11 @@ static int bes2600_switch_bt(bool on)
 			/* check if there is a error when bootup */
 			ret = (status <= 0 || bes2600_chrdev_is_bus_error()) ? -1 : 0;
 		} else {
-			bes_devel("bes2600 activate bt.\n");
+			bes_info("enable BT\n");
 			ret = bes2600_chrdev_switch_subsys(GPIO_WAKE_FLAG_BT_ON, SUBSYSTEM_BT, true);
 		}
 	} else {
-		bes_devel("bes2600 deactivate bt.\n");
+		bes_info("disable BT\n");
 		bes2600_chrdev_switch_subsys(GPIO_WAKE_FLAG_BT_OFF, SUBSYSTEM_BT, false);
 	}
 
