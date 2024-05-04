@@ -1878,6 +1878,7 @@ static int bes2600_sdio_probe(struct sdio_func *func,
 
 out:
 	bes2600_chrdev_set_sbus_priv_data(self, false);
+	bes2600_switch_bt(true);
 	bes2600_gpio_allow_mcu_sleep(self, GPIO_WAKE_FLAG_SDIO_PROBE);
 	return 0;
 
