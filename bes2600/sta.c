@@ -42,8 +42,6 @@
 #include "bes2600_factory.h"
 #endif
 
-#include "txrx_opt.h"
-
 #define WEP_ENCRYPT_HDR_SIZE    4
 #define WEP_ENCRYPT_TAIL_SIZE   4
 #define WPA_ENCRYPT_HDR_SIZE    8
@@ -2791,7 +2789,6 @@ void bes2600_dynamic_opt_txrx_work(struct work_struct *work)
 	if (priv != NULL && priv->join_status > BES2600_JOIN_STATUS_MONITOR) {
 		multivif_connected = true;
 	}
-	bes2600_txrx_opt_multivif_connected_handler(hw_priv, multivif_connected);
 }
 
 

@@ -22,7 +22,6 @@
 #include "debug.h"
 #include "epta_coex.h"
 #include "bes_chardev.h"
-#include "txrx_opt.h"
 #include "sta.h"
 #include "bes_log.h"
 
@@ -1260,8 +1259,6 @@ int bes2600_bh_sw_process(struct bes2600_common *hw_priv,
 		delta_time = jiffies + ((unsigned long)0xffffffff - timestamp);
 	else
 		delta_time =  jiffies - timestamp;
-	bes2600_add_tx_delta_time(delta_time);
-	bes2600_add_tx_ac_delta_time(queue_id, delta_time);
 
 	if (bes2600_need_retry_type(skb, tx_confirm->status) == 0)
 		return -1;
@@ -1270,11 +1267,7 @@ int bes2600_bh_sw_process(struct bes2600_common *hw_priv,
 		return -1;
 
 	if (txpriv->retry_count < CW1200_MAX_SW_RETRY_CNT ) {
-		struct bes2600_vif *priv =
-		__cw12xx_hwpriv_to_vifpriv(hw_priv, txpriv->if_id);
 		txpriv->retry_count++;
-
-		bes2600_tx_status(priv,skb);
 
 		bes2600_pwr_set_busy_event_with_timeout_async(
 			hw_priv, BES_PWR_LOCK_ON_TX, BES_PWR_EVENT_TX_TIMEOUT);

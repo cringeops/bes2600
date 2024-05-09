@@ -21,7 +21,6 @@
 #include "debug.h"
 #include "sta.h"
 #include "sbus.h"
-#include "txrx_opt.h"
 #include "bes_log.h"
 
 #define BES2600_INVALID_RATE_ID (0xFF)
@@ -1480,13 +1479,8 @@ void bes2600_skb_dtor(struct bes2600_common *hw_priv,
 				txpriv->raw_link_id, txpriv->tid);
 		tx_policy_put(hw_priv, txpriv->rate_id);
 	}
-	if (likely(!bes2600_is_itp(hw_priv))) {
-		if (priv) {
-			/* The interface may be already removed */
-			bes2600_tx_status(priv, skb);
-		}
+	if (likely(!bes2600_is_itp(hw_priv)))
 		ieee80211_tx_status_skb(hw_priv->hw, skb);
-	}
 
 }
 #ifdef CONFIG_BES2600_TESTMODE
@@ -1855,7 +1849,6 @@ void bes2600_rx_cb(struct bes2600_vif *priv,
 
 	if (ieee80211_is_data(frame->frame_control)) {
 		bes2600_rx_h_ba_stat(priv, hdrlen, skb->len);
-		bes2600_rx_status(priv, skb);
 	}
 
 #ifdef CONFIG_BES2600_TESTMODE
